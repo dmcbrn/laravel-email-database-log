@@ -10,7 +10,7 @@ class MailgunEvent extends Event
     public function verify(Request $request)
     {
         //get needed data
-        $apiKey = env('MAILGUN_SECRET', null);
+        $apiKey = config('email_log.mailgun.secret', null);
         $token = $request->signature['token'];
         $timestamp = $request->signature['timestamp'];
         $signature = $request->signature['signature'];
@@ -26,13 +26,15 @@ class MailgunEvent extends Event
     public function saveEvent(Request $request)
     {
         //get email
-        $email = $this->getEmail(strtok($request->{'event-data'}['message']['headers']['message-id'], '@'));
-        if(!$email)
+        $mail_id_str = strtok($request->{'event-data'}['message']['headers']['message-id'], '@');
+        $email = $this->getEmail($mail_id_str);
+        if(!$email && config('email_log.email.filter_unknown_emails')) {
             return response('Error: no E-mail found', 200)->header('Content-Type', 'text/plain');
+        }
 
         //save event
         EmailLogEvent::create([
-            'messageId' => $email->messageId,
+            'messageId' => $mail_id_str,
             'event' => $request->{'event-data'}['event'],
             'data' => json_encode($request->all()),
         ]);
