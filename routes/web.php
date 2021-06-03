@@ -13,7 +13,7 @@ Route::group([
 });
 
 Route::group([
-    'prefix' => config('email_log.routes_prefix', ''),
+    'prefix' => config('email_log.routes_webhook_prefix', ''),
 ], function(){
     //webhooks events
     Route::post('/email-log/webhooks/event', ['as' => 'email-log.webhooks', 'uses' => 'Dmcbrn\LaravelEmailDatabaseLog\EmailLogController@createEvent']);
