@@ -40,12 +40,12 @@ class EmailLog extends Model
     ];
 
     /**
-     * The attributes that are dates.
+     * The attributes that are cast to specific types.
      *
      * @var array
      */
-    protected $dates = [
-        'date',
+    protected $casts = [
+        'date' => 'datetime',
     ];
 
     /**
