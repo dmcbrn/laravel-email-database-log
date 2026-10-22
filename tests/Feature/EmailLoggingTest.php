@@ -36,9 +36,25 @@ class EmailLoggingTest extends TestCase
         $this->assertSame('Test subject', $log->subject);
         $this->assertSame('Hello there', $log->body);
         $this->assertNull($log->attachments);
+    }
 
-        // `mail_driver` is deliberately not checked yet: it is filled from a config
-        // option that no longer exists, which we fix (and test) in step 1.
+    public function test_it_logs_the_transport_of_the_default_mailer()
+    {
+        // Laravel 7+ config: "mail.default" names a mailer, and that mailer's "transport" is the driver.
+        config([
+            'mail.default' => 'notifications',
+            'mail.mailers.notifications' => ['transport' => 'array'],
+        ]);
+
+        $this->assertSame('array', $this->sendEmail()->mail_driver);
+    }
+
+    public function test_it_logs_the_driver_of_an_old_style_mail_config()
+    {
+        // Laravel <= 6 config files have a "mail.driver" key, which Laravel 8 still supports.
+        config(['mail.driver' => 'array']);
+
+        $this->assertSame('array', $this->sendEmail()->mail_driver);
     }
 
     public function test_it_logs_an_html_email()

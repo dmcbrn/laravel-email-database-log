@@ -40,10 +40,28 @@ class EmailLogger
             'headers' => (string)$message->getHeaders(),
             'attachments' => empty($attachments) ? null : implode(', ', $attachments),
             'messageId' => $messageId,
-            'mail_driver' => config('mail.driver'),
+            'mail_driver' => $this->getMailDriver(),
         ]);
 
         event(new EmailLogged($emailLog));
+    }
+
+    /**
+     * The mail driver, read the same way Laravel 8 does.
+     *
+     * @return null|string
+     */
+    protected function getMailDriver()
+    {
+        // Old (Laravel <= 6 style) config files still have "mail.driver".
+        if (config('mail.driver')) {
+            return config('mail.driver');
+        }
+
+        // Since Laravel 7, "mail.default" names the default mailer, and its "transport" is the driver.
+        $mailer = config('mail.default');
+
+        return config("mail.mailers.{$mailer}.transport", $mailer);
     }
 
     /**
