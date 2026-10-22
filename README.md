@@ -73,7 +73,7 @@ Config contains following parameters:
 //custom route prefix for webhooks
 'routes_webhook_prefix' => env('EMAIL_LOG_ROUTES_WEBHOOK_PREFIX', env('EMAIL_LOG_ROUTES_PREFIX','')),
 
-///mailgun webhook signing key (falls back to MAILGUN_SECRET), whether to ommit events for emails which were not found,
+//mailgun webhook signing key (falls back to MAILGUN_SECRET), whether to ommit events for emails which were not found,
 //and the maximum age of a webhook request in seconds (0 turns the check off)
 'mailgun' => [
     'secret' => env('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY', env('MAILGUN_SECRET', null)),
@@ -176,6 +176,30 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 5.3.3 to 5.4.0 - BUG FIXES, MAILGUN WEBHOOK SETTINGS
+
+This release fixes a number of bugs (see the release notes on GitHub for the full list) and has no new database migrations. When upgrading, check the following:
+
+- **Access to the email log pages:** the controller now extends Laravel's `Illuminate\Routing\Controller` instead of your app's `App\Http\Controllers\Controller`. If your base controller applied middleware (e.g. `auth`) in its constructor, the email log pages no longer inherit it. Protect them with `EMAIL_LOG_ACCESS_MIDDLEWARE`.
+- **Mailgun webhooks:** set your Mailgun *HTTP webhook signing key* as `EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY` (see "MailGun webhooks" above). If it is not set, `MAILGUN_SECRET` is used, as before. Requests are now rejected when neither is set. If you published the config file, update its `mailgun` section to:
+
+```php
+'mailgun' => [
+    'secret' => env('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY', env('MAILGUN_SECRET', null)),
+    'filter_unknown_emails' => env('EMAIL_LOG_MAILGUN_FILTER_UNKNOWN_EMAILS', true),
+    'max_age' => env('EMAIL_LOG_MAILGUN_WEBHOOK_MAX_AGE', 86400),
+],
+```
+
+- **Delete old emails** now deletes emails logged on and before the selected date, on every database.
+- **Attachments with the same name** in one email are now stored with a numbered prefix (`2-invoice.pdf`) instead of overwriting each other.
+- **Attachment disk:** `EMAIL_LOG_DISK` is now read, as documented. `EMAIL_LOG_ATTACHMENT_DISK` still works, but if you set both to different disks, `EMAIL_LOG_DISK` now wins.
+- If you use queues, restart your queue workers after upgrading.
+
+## Upgrade from 5.3.2 to 5.3.3 - TESTS ADDED
+
+No changes to the package's code. This release adds an automated test suite (see "Running the tests"). Nothing to do when upgrading.
 
 ## Upgrade from 5.2.2 to 5.3.0 - API ENDPOINTS AVAILABLE, BREAKING CHANGE
 
