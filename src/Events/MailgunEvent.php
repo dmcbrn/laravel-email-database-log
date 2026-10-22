@@ -27,6 +27,7 @@ class MailgunEvent extends Event
         $maxAge = (int) config('email_log.mailgun.max_age', 86400);
         if ($maxAge > 0 && abs(time() - $timestamp) > $maxAge)
             return false;
+
         //returns true if signature is valid (hash_equals compares in constant time)
         return hash_equals(hash_hmac('sha256', $timestamp.$token, $apiKey), $signature);
     }
