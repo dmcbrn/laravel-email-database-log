@@ -4,6 +4,7 @@ namespace Dmcbrn\LaravelEmailDatabaseLog\Tests\Feature;
 
 use Dmcbrn\LaravelEmailDatabaseLog\Tests\TestCase;
 use Dmcbrn\LaravelEmailDatabaseLog\EmailLog;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -143,5 +144,29 @@ class EmailLogPagesTest extends TestCase
         $this->assertStringStartsWith('Deleted 1 emails', $response->json('message'));
         $this->assertNull(EmailLog::find($old->id));
         $this->assertNotNull(EmailLog::find($new->id));
+    }
+
+    public function test_deleting_old_emails_includes_the_selected_date()
+    {
+        $dayBefore = $this->sendEmail('Day before');
+        $selectedDay = $this->sendEmail('Selected day, last second');
+        $nextDay = $this->sendEmail('Next day, midnight');
+
+        EmailLog::where('id', $dayBefore->id)->update(['date' => '2021-01-01 12:00:00']);
+        EmailLog::where('id', $selectedDay->id)->update(['date' => '2021-01-02 23:59:59']);
+        EmailLog::where('id', $nextDay->id)->update(['date' => '2021-01-03 00:00:00']);
+
+        DB::enableQueryLog();
+        $this->post(route('email-log.delete-old'), ['date' => '2021-01-02']);
+
+        // Emails logged on the selected date are deleted too; the next day is kept.
+        $this->assertStringStartsWith('Deleted 2 emails', session('status'));
+        $this->assertNull(EmailLog::find($dayBefore->id));
+        $this->assertNull(EmailLog::find($selectedDay->id));
+        $this->assertNotNull(EmailLog::find($nextDay->id));
+
+        // SQLite and MySQL only agree if the date is sent in the format dates are stored in.
+        $bindings = collect(DB::getQueryLog())->pluck('bindings')->flatten()->all();
+        $this->assertContains('2021-01-03 00:00:00', $bindings);
     }
 }

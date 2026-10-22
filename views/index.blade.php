@@ -41,7 +41,7 @@
             <form action="{{ route('email-log.delete-old') }}" method="POST"
                   onsubmit="return confirm('Are you sure? You will not be able to undo this actions!')">
                 {{ csrf_field() }}
-                <label for="date">Delete all emails older than this date (excludes the selected date):</label>
+                <label for="date">Delete all emails logged on or before this date:</label>
                 <input type="date" name="date" id="date">
                 @if(false)
                     <!-- Commented out as only available in 5.8.13 -->

@@ -178,10 +178,10 @@ class EmailLogController extends Controller {
             'date' => 'required|date',
         ]);
 
-        //get emails
+        //get emails logged on or before the selected date (= before the start of the next day)
         $date = strtotime($request->date);
         $emails = EmailLog::select('id', 'date', 'messageId')
-            ->where('date', '<=', date("c", $date))
+            ->where('date', '<', date('Y-m-d H:i:s', strtotime('+1 day', $date)))
             ->get();
 
         //delete email attachments
