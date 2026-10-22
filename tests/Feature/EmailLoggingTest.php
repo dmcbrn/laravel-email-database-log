@@ -148,6 +148,23 @@ class EmailLoggingTest extends TestCase
         $this->assertSame('second file', $disk->get($log->messageId . '/two.txt'));
     }
 
+    public function test_it_stores_inline_images_with_the_attachments()
+    {
+        Mail::html('<p>Our logo</p>', function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Inline image')
+                ->attachData('file contents', 'hello.txt', ['mime' => 'text/plain']);
+
+            // Same as {{ $message->embedData(...) }} in a mail view.
+            $message->embedData('fake image bytes', 'logo.png', 'image/png');
+        });
+
+        $log = EmailLog::first();
+        $this->assertSame($log->messageId . '/hello.txt, ' . $log->messageId . '/logo.png', $log->attachments);
+        $this->assertSame('fake image bytes', Storage::disk('email_log_attachments')->get($log->messageId . '/logo.png'));
+    }
+
     public function test_it_fires_an_email_logged_event()
     {
         $logged = null;

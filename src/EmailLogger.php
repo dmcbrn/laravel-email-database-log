@@ -21,8 +21,8 @@ class EmailLogger
 
         $attachments = [];
         foreach ($message->getChildren() as $child) {
-            //docs for this below: http://phpdox.de/demo/Symfony2/classes/Swift_Mime_SimpleMimeEntity/getChildren.xhtml
-            if(in_array(get_class($child),['Swift_EmbeddedFile','Swift_Attachment'])) {
+            //attachments and inline (embedded) files, e.g. Swift_Attachment and Swift_Image
+            if ($child instanceof \Swift_Mime_Attachment) {
                 $attachmentPath = $messageId . '/' . $child->getFilename();
                 Storage::disk(config('email_log.disk'))->put($attachmentPath, $child->getBody());
                 $attachments[] = $attachmentPath;
