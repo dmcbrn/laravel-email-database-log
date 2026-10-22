@@ -14,7 +14,7 @@
         "illuminate/database": "~8.0",
         "illuminate/mail": "~8.0",
         "illuminate/queue": "~8.0",
-        "doctrine/dbal": "*"
+        "doctrine/dbal": "^2.13.3|^3.1.4"
     },
     "require-dev": {
         "orchestra/testbench": "^6.0"
