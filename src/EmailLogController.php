@@ -200,6 +200,6 @@ class EmailLogController extends Controller {
         $numberOfDeletedEmails = EmailLog::destroy($emails->pluck('id'));
 
         //return message
-        return 'Deleted ' . $numberOfDeletedEmails . ' emails logged on and before ' . date("r", $date);
+        return 'Deleted ' . $numberOfDeletedEmails . ' emails logged on and before ' . date('D, d M Y', $date);
     }
 }

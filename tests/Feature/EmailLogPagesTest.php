@@ -208,7 +208,7 @@ class EmailLogPagesTest extends TestCase
         $this->post(route('email-log.delete-old'), ['date' => '2021-01-02']);
 
         // Emails logged on the selected date are deleted too; the next day is kept.
-        $this->assertStringStartsWith('Deleted 2 emails', session('status'));
+        $this->assertSame('Deleted 2 emails logged on and before Sat, 02 Jan 2021', session('status'));
         $this->assertNull(EmailLog::find($dayBefore->id));
         $this->assertNull(EmailLog::find($selectedDay->id));
         $this->assertNotNull(EmailLog::find($nextDay->id));
