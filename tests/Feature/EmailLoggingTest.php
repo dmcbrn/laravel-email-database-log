@@ -186,6 +186,28 @@ class EmailLoggingTest extends TestCase
         $this->assertSame('third invoice', $disk->get("$id/3-INVOICE.pdf"));
     }
 
+    public function test_path_like_attachment_names_are_stored_inside_the_email_folder()
+    {
+        Mail::raw('Hello there', function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Odd names')
+                ->attachData('one', '../one.txt')
+                ->attachData('two', '../../two.txt')
+                ->attachData('three', 'folder\\three.txt')
+                ->attachData('four', '..');
+        });
+
+        $log = EmailLog::first();
+        $id = $log->messageId;
+        $this->assertSame("$id/one.txt, $id/two.txt, $id/three.txt, $id/attachment-4", $log->attachments);
+
+        // Nothing was written outside the email's own folder.
+        $files = Storage::disk('email_log_attachments')->allFiles();
+        sort($files);
+        $this->assertSame(["$id/attachment-4", "$id/one.txt", "$id/three.txt", "$id/two.txt"], $files);
+    }
+
     public function test_it_fires_an_email_logged_event()
     {
         $logged = null;

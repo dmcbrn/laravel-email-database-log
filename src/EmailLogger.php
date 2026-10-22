@@ -24,7 +24,9 @@ class EmailLogger
         foreach ($message->getChildren() as $child) {
             //attachments and inline (embedded) files, e.g. Swift_Attachment and Swift_Image
             if ($child instanceof \Swift_Mime_Attachment) {
-                $name = $this->uniqueAttachmentName($child->getFilename(), count($attachments) + 1, $usedNames);
+                $position = count($attachments) + 1;
+                $name = $this->safeAttachmentName($child->getFilename(), $position);
+                $name = $this->uniqueAttachmentName($name, $position, $usedNames);
                 $attachmentPath = $messageId . '/' . $name;
                 Storage::disk(config('email_log.disk'))->put($attachmentPath, $child->getBody());
                 $attachments[] = $attachmentPath;
@@ -82,6 +84,29 @@ class EmailLogger
             $name = $position . '-' . $name;
         }
         $usedNames[] = strtolower($name);
+
+        return $name;
+    }
+
+    /**
+     * Keep only the last part of a path-like name ("../../x.txt" becomes "x.txt"), so the
+     * file is always stored inside this email's own folder.
+     *
+     * @param  null|string  $name
+     * @param  int  $position
+     * @return string
+     */
+    protected function safeAttachmentName($name, $position)
+    {
+        $name = str_replace('\\', '/', (string) $name);
+        $lastSlash = strrpos($name, '/');
+        if ($lastSlash !== false) {
+            $name = substr($name, $lastSlash + 1);
+        }
+
+        if ($name === '' || $name === '.' || $name === '..') {
+            $name = 'attachment-' . $position;
+        }
 
         return $name;
     }
