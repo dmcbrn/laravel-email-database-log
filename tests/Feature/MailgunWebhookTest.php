@@ -79,6 +79,18 @@ class MailgunWebhookTest extends TestCase
         $this->assertSame(0, EmailLogEvent::count());
     }
 
+    public function test_events_are_rejected_when_no_secret_is_configured()
+    {
+        config(['email_log.mailgun.secret' => null]);
+        $log = $this->sendEmail();
+
+        // Anyone can compute a "signature" with an empty key; it must not be accepted.
+        $response = $this->postJson(route('email-log.webhooks'), $this->webhookPayload($log->messageId, 'delivered', ''));
+
+        $response->assertStatus(400);
+        $this->assertSame(0, EmailLogEvent::count());
+    }
+
     public function test_an_event_for_an_unknown_email_is_ignored()
     {
         $response = $this->postJson(

@@ -11,6 +11,9 @@ class MailgunEvent extends Event
     {
         //get needed data
         $apiKey = config('email_log.mailgun.secret', null);
+        //without a secret anyone could make a valid signature (with an empty key), so reject
+        if (empty($apiKey))
+            return false;
         $token = $request->signature['token'];
         $timestamp = $request->signature['timestamp'];
         $signature = $request->signature['signature'];

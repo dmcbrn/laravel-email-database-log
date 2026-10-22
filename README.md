@@ -138,6 +138,8 @@ for all of the events. If you used a `prefix` in the config file then this shoul
 https://example.com/your-prefix/email-log/webhooks/event
 ```
 
+Webhook requests are only accepted when the `MAILGUN_SECRET` environment variable (the `mailgun.secret` value in the config file) is set and the request's signature matches it.
+
 ## Running the tests
 
 The package has a test suite that boots a throw-away Laravel app with [Orchestra Testbench](https://github.com/orchestral/testbench), using an in-memory SQLite database. Nothing is sent and nothing is left behind.
