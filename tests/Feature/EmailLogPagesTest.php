@@ -3,6 +3,8 @@
 namespace Dmcbrn\LaravelEmailDatabaseLog\Tests\Feature;
 
 use Dmcbrn\LaravelEmailDatabaseLog\Tests\TestCase;
+use Dmcbrn\LaravelEmailDatabaseLog\EmailLog;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * The web pages and the JSON API that show the logged emails.
@@ -109,5 +111,37 @@ class EmailLogPagesTest extends TestCase
             ->assertOk()
             ->assertJsonPath('email.subject', 'Api subject')
             ->assertJsonPath('email.messageId', $log->messageId);
+    }
+
+    public function test_old_emails_can_be_deleted()
+    {
+        $old = $this->sendEmail('Old email', 'jane@example.com', ['old.txt' => 'old file']);
+        $new = $this->sendEmail('New email', 'jane@example.com');
+
+        // Move the first email back in time; the second one keeps today's date.
+        EmailLog::where('id', $old->id)->update(['date' => '2020-01-01 10:00:00']);
+
+        $response = $this->post(route('email-log.delete-old'), ['date' => '2021-01-01']);
+
+        $response->assertRedirect(route('email-log'));
+        $this->assertStringStartsWith('Deleted 1 emails', session('status'));
+
+        $this->assertNull(EmailLog::find($old->id));
+        $this->assertNotNull(EmailLog::find($new->id));
+        Storage::disk('email_log_attachments')->assertMissing($old->messageId . '/old.txt');
+    }
+
+    public function test_old_emails_can_be_deleted_through_the_api()
+    {
+        $old = $this->sendEmail('Old email');
+        $new = $this->sendEmail('New email');
+        EmailLog::where('id', $old->id)->update(['date' => '2020-01-01 10:00:00']);
+
+        $response = $this->postJson(route('api.email-log.delete-old'), ['date' => '2021-01-01']);
+
+        $response->assertOk();
+        $this->assertStringStartsWith('Deleted 1 emails', $response->json('message'));
+        $this->assertNull(EmailLog::find($old->id));
+        $this->assertNotNull(EmailLog::find($new->id));
     }
 }
