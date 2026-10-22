@@ -91,6 +91,29 @@ class MailgunWebhookTest extends TestCase
         $this->assertSame(0, EmailLogEvent::count());
     }
 
+    public function test_a_request_with_a_malformed_signature_is_rejected()
+    {
+        // Bots and scanners post anything; the webhook must answer 400, not crash with a 500.
+        $this->postJson(route('email-log.webhooks'), [])->assertStatus(400);
+        $this->postJson(route('email-log.webhooks'), ['signature' => 'not-an-array'])->assertStatus(400);
+        $this->postJson(route('email-log.webhooks'), [
+            'signature' => ['timestamp' => (string) time(), 'token' => ['an', 'array'], 'signature' => 'x'],
+        ])->assertStatus(400);
+    }
+
+    public function test_a_signed_request_with_malformed_event_data_is_rejected()
+    {
+        $payload = $this->webhookPayload(str_repeat('a', 32));
+
+        $payload['event-data'] = 'not-an-array';
+        $this->postJson(route('email-log.webhooks'), $payload)->assertStatus(400);
+
+        $payload['event-data'] = ['event' => 'delivered']; // no message-id
+        $this->postJson(route('email-log.webhooks'), $payload)->assertStatus(400);
+
+        $this->assertSame(0, EmailLogEvent::count());
+    }
+
     public function test_an_event_for_an_unknown_email_is_ignored()
     {
         $response = $this->postJson(
