@@ -138,6 +138,17 @@ for all of the events. If you used a `prefix` in the config file then this shoul
 https://example.com/your-prefix/email-log/webhooks/event
 ```
 
+## Running the tests
+
+The package has a test suite that boots a throw-away Laravel app with [Orchestra Testbench](https://github.com/orchestral/testbench), using an in-memory SQLite database. Nothing is sent and nothing is left behind.
+
+```bash
+composer update
+composer test
+```
+
+Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
 ## Upgrade from 5.2.2 to 5.3.0 - API ENDPOINTS AVAILABLE, BREAKING CHANGE
 
 API ENDPOINTS AVAILABLE:

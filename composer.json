@@ -16,10 +16,21 @@
         "illuminate/queue": "~8.0",
         "doctrine/dbal": "*"
     },
+    "require-dev": {
+        "orchestra/testbench": "^6.0"
+    },
     "autoload": {
         "psr-4": {
             "Dmcbrn\\LaravelEmailDatabaseLog\\": "src/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Dmcbrn\\LaravelEmailDatabaseLog\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit"
     },
     "extra": {
         "laravel": {
