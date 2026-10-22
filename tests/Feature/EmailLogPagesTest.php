@@ -169,4 +169,23 @@ class EmailLogPagesTest extends TestCase
         $bindings = collect(DB::getQueryLog())->pluck('bindings')->flatten()->all();
         $this->assertContains('2021-01-03 00:00:00', $bindings);
     }
+
+    public function test_the_list_page_can_be_searched_with_empty_filters()
+    {
+        $this->sendEmail('Welcome aboard');
+
+        // What the browser sends when "Search" is clicked with both boxes empty.
+        $this->get(route('email-log') . '?filterEmail=&filterSubject=')
+            ->assertOk()
+            ->assertSee('Welcome aboard');
+    }
+
+    public function test_the_api_accepts_empty_filters()
+    {
+        $this->sendEmail('Welcome aboard');
+
+        $this->getJson(route('api.email-log') . '?filterEmail=&filterSubject=&per_page=')
+            ->assertOk()
+            ->assertJsonPath('total', 1);
+    }
 }

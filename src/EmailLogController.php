@@ -145,9 +145,9 @@ class EmailLogController extends Controller {
     {
         //validate
         $request->validate([
-            'filterEmail' => 'string',
-            'filterSubject' => 'string',
-            'per_page' => 'numeric',
+            'filterEmail' => 'nullable|string',
+            'filterSubject' => 'nullable|string',
+            'per_page' => 'nullable|numeric',
         ]);
 
         //get emails
