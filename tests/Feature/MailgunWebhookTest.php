@@ -125,4 +125,25 @@ class MailgunWebhookTest extends TestCase
         $this->assertSame('Error: no E-mail found', $response->getContent());
         $this->assertSame(0, EmailLogEvent::count());
     }
+
+    public function test_the_webhook_signing_key_setting_takes_precedence_over_mailgun_secret()
+    {
+        // Laravel's own Mailgun mail transport reads its API key from MAILGUN_SECRET,
+        // but Mailgun signs webhooks with a different key: the HTTP webhook signing key.
+        putenv('MAILGUN_SECRET=api-key');
+        putenv('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY=signing-key');
+
+        try {
+            $config = require __DIR__ . '/../../config/email_log.php';
+            $this->assertSame('signing-key', $config['mailgun']['secret']);
+
+            // Without the new setting, MAILGUN_SECRET is used, as in earlier versions.
+            putenv('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY');
+            $config = require __DIR__ . '/../../config/email_log.php';
+            $this->assertSame('api-key', $config['mailgun']['secret']);
+        } finally {
+            putenv('MAILGUN_SECRET');
+            putenv('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY');
+        }
+    }
 }

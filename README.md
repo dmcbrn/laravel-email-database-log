@@ -73,9 +73,9 @@ Config contains following parameters:
 //custom route prefix for webhooks
 'routes_webhook_prefix' => env('EMAIL_LOG_ROUTES_WEBHOOK_PREFIX', env('EMAIL_LOG_ROUTES_PREFIX','')),
 
-//mailgun secret and whether to ommit events for emails which were not found
+//mailgun webhook signing key (falls back to MAILGUN_SECRET) and whether to ommit events for emails which were not found
 'mailgun' => [
-    'secret' => env('MAILGUN_SECRET', null),
+    'secret' => env('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY', env('MAILGUN_SECRET', null)),
     'filter_unknown_emails' => env('EMAIL_LOG_MAILGUN_FILTER_UNKNOWN_EMAILS', true),
 ],
 ```
@@ -138,7 +138,19 @@ for all of the events. If you used a `prefix` in the config file then this shoul
 https://example.com/your-prefix/email-log/webhooks/event
 ```
 
-Webhook requests are only accepted when the `MAILGUN_SECRET` environment variable (the `mailgun.secret` value in the config file) is set and the request's signature matches it.
+Mailgun signs webhook requests with your *HTTP webhook signing key* (in Mailgun: Settings → API Security), which is different from your API key. Add it to your `.env` file:
+
+```
+EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY=your-webhook-signing-key
+```
+
+If it is not set, `MAILGUN_SECRET` is used, as in earlier versions. Webhook requests are rejected when neither is set or when the signature does not match.
+
+If you published the config file, update the `secret` line in its `mailgun` section to:
+
+```php
+'secret' => env('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY', env('MAILGUN_SECRET', null)),
+```
 
 ## Running the tests
 
