@@ -171,7 +171,8 @@ class EmailLogController extends Controller {
                 return $q->where('subject','like','%'.$filterSubject.'%');
             })
             ->orderBy('id','desc')
-            ->paginate($request->per_page ?: 20);
+            ->paginate($request->per_page ?: 20)
+            ->withQueryString();
 
         return [$emails, $filterEmail, $filterSubject];
     }

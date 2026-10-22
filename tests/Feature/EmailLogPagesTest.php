@@ -71,6 +71,28 @@ class EmailLogPagesTest extends TestCase
             ->assertDontSee('Newest email');
     }
 
+    public function test_filters_are_kept_when_paging()
+    {
+        $this->sendEmail('Invoice 1');
+        $this->sendEmail('Invoice 2');
+        $this->sendEmail('Invoice 3');
+        $this->sendEmail('Newsletter');
+
+        // The page links on the list page keep the filter and the page size...
+        $this->get(route('email-log', ['filterSubject' => 'Invoice', 'per_page' => 2]))
+            ->assertSee('filterSubject=Invoice')
+            ->assertSee('per_page=2');
+
+        // ...and so does the API, so its page 2 holds the last invoice, not the newsletter.
+        $nextPage = $this->getJson(route('api.email-log', ['filterSubject' => 'Invoice', 'per_page' => 2]))
+            ->json('next_page_url');
+
+        $this->getJson($nextPage)
+            ->assertJsonPath('total', 3)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.subject', 'Invoice 1');
+    }
+
     public function test_the_show_page_displays_one_email_with_its_attachment()
     {
         $log = $this->sendEmail('Show me', 'jane@example.com', ['hello.txt' => 'file contents']);
