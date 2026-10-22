@@ -22,10 +22,11 @@ class MailgunEvent extends Event
         if (!is_string($token) || !is_numeric($timestamp) || !is_string($signature))
             return false;
 
-        //check if the timestamp is fresh
-        if (abs(time() - $timestamp) > 15)
+        //check the timestamp is not too old; Mailgun can deliver webhooks late, so the
+        //default is generous (24 hours), and 0 turns the check off
+        $maxAge = (int) config('email_log.mailgun.max_age', 86400);
+        if ($maxAge > 0 && abs(time() - $timestamp) > $maxAge)
             return false;
-
         //returns true if signature is valid (hash_equals compares in constant time)
         return hash_equals(hash_hmac('sha256', $timestamp.$token, $apiKey), $signature);
     }

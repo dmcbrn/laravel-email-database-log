@@ -24,9 +24,9 @@ class MailgunWebhookTest extends TestCase
     /**
      * Build a request body signed the way Mailgun signs it.
      */
-    protected function webhookPayload($messageId, $event = 'delivered', $secret = 'test-secret')
+    protected function webhookPayload($messageId, $event = 'delivered', $secret = 'test-secret', $timestamp = null)
     {
-        $timestamp = (string) time();
+        $timestamp = (string) ($timestamp ?: time());
         $token = 'random-token';
 
         return [
@@ -53,6 +53,50 @@ class MailgunWebhookTest extends TestCase
         $this->assertSame('Success', $response->getContent());
         $this->assertSame(1, $log->events()->count());
         $this->assertSame('delivered', $log->events()->first()->event);
+    }
+
+    public function test_a_correctly_signed_event_that_arrives_late_is_accepted()
+    {
+        $log = $this->sendEmail();
+
+        // Mailgun can deliver webhooks late and retries failed ones for up to 8 hours.
+        $payload = $this->webhookPayload($log->messageId, 'delivered', 'test-secret', time() - 3600);
+
+        $this->postJson(route('email-log.webhooks'), $payload)->assertOk();
+        $this->assertSame(1, $log->events()->count());
+    }
+
+    public function test_an_event_older_than_the_configured_maximum_age_is_rejected()
+    {
+        config(['email_log.mailgun.max_age' => 60]);
+        $log = $this->sendEmail();
+
+        $payload = $this->webhookPayload($log->messageId, 'delivered', 'test-secret', time() - 120);
+
+        $this->postJson(route('email-log.webhooks'), $payload)->assertStatus(400);
+        $this->assertSame(0, EmailLogEvent::count());
+    }
+
+    public function test_the_age_check_can_be_turned_off()
+    {
+        config(['email_log.mailgun.max_age' => 0]);
+        $log = $this->sendEmail();
+
+        $payload = $this->webhookPayload($log->messageId, 'delivered', 'test-secret', time() - 2 * 86400);
+
+        $this->postJson(route('email-log.webhooks'), $payload)->assertOk();
+        $this->assertSame(1, $log->events()->count());
+    }
+
+    public function test_the_default_maximum_age_also_applies_with_an_older_published_config()
+    {
+        // A config file published before this setting existed has no "max_age" key.
+        config(['email_log.mailgun' => ['secret' => 'test-secret', 'filter_unknown_emails' => true]]);
+        $log = $this->sendEmail();
+
+        $payload = $this->webhookPayload($log->messageId, 'delivered', 'test-secret', time() - 3600);
+
+        $this->postJson(route('email-log.webhooks'), $payload)->assertOk();
     }
 
     public function test_the_saved_event_is_visible_through_the_api()
