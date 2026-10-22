@@ -20,10 +20,12 @@ class EmailLogger
         $messageId = strtok($message->getId(), '@');
 
         $attachments = [];
+        $usedNames = [];
         foreach ($message->getChildren() as $child) {
             //attachments and inline (embedded) files, e.g. Swift_Attachment and Swift_Image
             if ($child instanceof \Swift_Mime_Attachment) {
-                $attachmentPath = $messageId . '/' . $child->getFilename();
+                $name = $this->uniqueAttachmentName($child->getFilename(), count($attachments) + 1, $usedNames);
+                $attachmentPath = $messageId . '/' . $name;
                 Storage::disk(config('email_log.disk'))->put($attachmentPath, $child->getBody());
                 $attachments[] = $attachmentPath;
             }
@@ -62,6 +64,26 @@ class EmailLogger
         $mailer = config('mail.default');
 
         return config("mail.mailers.{$mailer}.transport", $mailer);
+    }
+
+    /**
+     * A file name that is unique within this email, so attachments with the same name
+     * don't overwrite each other: a taken name is prefixed with the attachment's position.
+     *
+     * @param  string  $name
+     * @param  int  $position
+     * @param  array  $usedNames
+     * @return string
+     */
+    protected function uniqueAttachmentName($name, $position, array &$usedNames)
+    {
+        // Compared case-insensitively: on some file systems "a.pdf" and "A.pdf" are the same file.
+        while (in_array(strtolower($name), $usedNames, true)) {
+            $name = $position . '-' . $name;
+        }
+        $usedNames[] = strtolower($name);
+
+        return $name;
     }
 
     /**

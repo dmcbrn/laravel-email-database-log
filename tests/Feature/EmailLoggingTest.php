@@ -165,6 +165,27 @@ class EmailLoggingTest extends TestCase
         $this->assertSame('fake image bytes', Storage::disk('email_log_attachments')->get($log->messageId . '/logo.png'));
     }
 
+    public function test_attachments_with_the_same_name_are_all_kept()
+    {
+        Mail::raw('Hello there', function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Same names')
+                ->attachData('first invoice', 'invoice.pdf', ['mime' => 'application/pdf'])
+                ->attachData('second invoice', 'invoice.pdf', ['mime' => 'application/pdf'])
+                ->attachData('third invoice', 'INVOICE.pdf', ['mime' => 'application/pdf']);
+        });
+
+        $log = EmailLog::first();
+        $id = $log->messageId;
+        $this->assertSame("$id/invoice.pdf, $id/2-invoice.pdf, $id/3-INVOICE.pdf", $log->attachments);
+
+        $disk = Storage::disk('email_log_attachments');
+        $this->assertSame('first invoice', $disk->get("$id/invoice.pdf"));
+        $this->assertSame('second invoice', $disk->get("$id/2-invoice.pdf"));
+        $this->assertSame('third invoice', $disk->get("$id/3-INVOICE.pdf"));
+    }
+
     public function test_it_fires_an_email_logged_event()
     {
         $logged = null;
