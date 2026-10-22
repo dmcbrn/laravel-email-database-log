@@ -47,14 +47,19 @@ class EmailLogController extends Controller {
 
     public function fetchAttachment(int $id, int $attachment)
     {
-        //get email and attachments' paths
-        $email = EmailLog::select('id','attachments')->find($id);
-        $attachmentFullPath = explode(', ',$email->attachments)[$attachment];
+        //get email and attachments' paths (404 if the email or the attachment doesn't exist)
+        $email = EmailLog::select('id','attachments')->findOrFail($id);
+        $attachmentPaths = array_filter(explode(', ', (string) $email->attachments));
+        if (!isset($attachmentPaths[$attachment]))
+            abort(404);
+        $attachmentFullPath = urldecode($attachmentPaths[$attachment]);
 
-        //get file and mime type
+        //get file and mime type (404 if the file is no longer on the disk)
         $disk = Storage::disk(config('email_log.disk'));
-        $file = $disk->get(urldecode($attachmentFullPath));
-        $mimeType = $disk->mimeType(urldecode($attachmentFullPath));
+        if (!$disk->exists($attachmentFullPath))
+            abort(404);
+        $file = $disk->get($attachmentFullPath);
+        $mimeType = $disk->mimeType($attachmentFullPath);
 
         //return file
         return response($file, 200)->header('Content-Type', $mimeType);
@@ -101,7 +106,7 @@ class EmailLogController extends Controller {
     {
         //get email
         $email = EmailLog::with('events')
-            ->find($id);
+            ->findOrFail($id);
 
         //format attachments as collection
         $attachments = collect();

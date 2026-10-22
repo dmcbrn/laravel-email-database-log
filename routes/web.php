@@ -26,13 +26,15 @@ Route::group([
         [
             'as' => 'email-log.fetch-attachment',
             'uses' => 'Dmcbrn\LaravelEmailDatabaseLog\EmailLogController@fetchAttachment',
+            'where' => ['id' => '[0-9]+', 'attachment' => '[0-9]+'],
         ]
     );
     Route::get(
         '/email-log/{id}',
-         [
+        [
             'as' => 'email-log.show',
             'uses' => 'Dmcbrn\LaravelEmailDatabaseLog\EmailLogController@show',
+            'where' => ['id' => '[0-9]+'],
         ]
     );
 });

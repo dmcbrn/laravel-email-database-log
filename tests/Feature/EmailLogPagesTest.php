@@ -93,6 +93,32 @@ class EmailLogPagesTest extends TestCase
         $this->assertStringContainsString('text/plain', $response->headers->get('Content-Type'));
     }
 
+    public function test_unknown_emails_and_attachments_give_404()
+    {
+        // A 404 is a response Laravel makes from an exception, so turn exception handling back on.
+        $this->withExceptionHandling();
+
+        $withFile = $this->sendEmail('With file', 'jane@example.com', ['hello.txt' => 'file contents']);
+        $withoutFile = $this->sendEmail('Without file');
+
+        $this->get(route('email-log.show', ['id' => 999]))->assertNotFound();
+        $this->getJson(route('api.email-log.show', ['id' => 999]))->assertNotFound();
+        $this->get(route('email-log.fetch-attachment', ['id' => 999, 'attachment' => 0]))->assertNotFound();
+        $this->get(route('email-log.fetch-attachment', ['id' => $withFile->id, 'attachment' => 5]))->assertNotFound();
+        $this->get(route('email-log.fetch-attachment', ['id' => $withoutFile->id, 'attachment' => 0]))->assertNotFound();
+        $this->get('/email-log/not-a-number')->assertNotFound();
+    }
+
+    public function test_an_attachment_whose_file_was_deleted_gives_404()
+    {
+        $this->withExceptionHandling();
+
+        $log = $this->sendEmail('With file', 'jane@example.com', ['hello.txt' => 'file contents']);
+        Storage::disk('email_log_attachments')->delete($log->messageId . '/hello.txt');
+
+        $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 0]))->assertNotFound();
+    }
+
     public function test_the_api_lists_logged_emails()
     {
         $this->sendEmail('First', 'jane@example.com');
