@@ -154,6 +154,18 @@ If you published the config file, update the `secret` line in its `mailgun` sect
 'secret' => env('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY', env('MAILGUN_SECRET', null)),
 ```
 
+Webhook requests signed more than 24 hours ago are rejected. Mailgun can deliver webhooks late and retries failed ones for up to 8 hours, so keep this generous. To change it, set the maximum age in seconds (`0` turns the check off):
+
+```
+EMAIL_LOG_MAILGUN_WEBHOOK_MAX_AGE=86400
+```
+
+If you published the config file before this setting existed, the 24-hour default still applies. To change it, add this line to the `mailgun` section of your published config file:
+
+```php
+'max_age' => env('EMAIL_LOG_MAILGUN_WEBHOOK_MAX_AGE', 86400),
+```
+
 ## Running the tests
 
 The package has a test suite that boots a throw-away Laravel app with [Orchestra Testbench](https://github.com/orchestral/testbench), using an in-memory SQLite database. Nothing is sent and nothing is left behind.
