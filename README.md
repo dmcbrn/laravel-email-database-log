@@ -54,7 +54,7 @@ Config contains following parameters:
 
 ```php
 //name of the disk where the attachments will be saved
-'disk' => env('EMAIL_LOG_DISK','email_log_attachments'),
+'disk' => env('EMAIL_LOG_DISK', env('EMAIL_LOG_ATTACHMENT_DISK', 'email_log_attachments')),
 
 //to prevent access to list of logged emails through WEB routes add a middlewares
 //multiple middlewares can be used (separate by comma)
@@ -73,10 +73,12 @@ Config contains following parameters:
 //custom route prefix for webhooks
 'routes_webhook_prefix' => env('EMAIL_LOG_ROUTES_WEBHOOK_PREFIX', env('EMAIL_LOG_ROUTES_PREFIX','')),
 
-//mailgun webhook signing key (falls back to MAILGUN_SECRET) and whether to ommit events for emails which were not found
+///mailgun webhook signing key (falls back to MAILGUN_SECRET), whether to ommit events for emails which were not found,
+//and the maximum age of a webhook request in seconds (0 turns the check off)
 'mailgun' => [
     'secret' => env('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY', env('MAILGUN_SECRET', null)),
     'filter_unknown_emails' => env('EMAIL_LOG_MAILGUN_FILTER_UNKNOWN_EMAILS', true),
+    'max_age' => env('EMAIL_LOG_MAILGUN_WEBHOOK_MAX_AGE', 86400),
 ],
 ```
 
@@ -84,7 +86,7 @@ Config contains following parameters:
 
 After installation, any email sent by your website will be logged to `email_log` table in the site's database.
 
-Any attachments will be saved in `storage/email_log_attachments` disk. The `email_log_attachments` can be changed by publishing the config file and changing the 'folder' value.
+Any attachments will be saved on the `email_log_attachments` disk. To use another disk, set `EMAIL_LOG_DISK` in your `.env` file (`EMAIL_LOG_ATTACHMENT_DISK`, which earlier versions read, still works), or publish the config file and change the `disk` value.
 
 You also need to add the following disk in the `config/filesystems.php` file:
 

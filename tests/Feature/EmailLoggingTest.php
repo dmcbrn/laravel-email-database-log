@@ -208,6 +208,29 @@ class EmailLoggingTest extends TestCase
         $this->assertSame(["$id/attachment-4", "$id/one.txt", "$id/three.txt", "$id/two.txt"], $files);
     }
 
+    public function test_the_attachment_disk_can_be_set_with_either_environment_variable()
+    {
+        // The README documents EMAIL_LOG_DISK; earlier versions of the config file read EMAIL_LOG_ATTACHMENT_DISK.
+        putenv('EMAIL_LOG_DISK=documented-disk');
+        putenv('EMAIL_LOG_ATTACHMENT_DISK=older-disk');
+
+        try {
+            $config = require __DIR__ . '/../../config/email_log.php';
+            $this->assertSame('documented-disk', $config['disk']);
+
+            putenv('EMAIL_LOG_DISK');
+            $config = require __DIR__ . '/../../config/email_log.php';
+            $this->assertSame('older-disk', $config['disk']);
+
+            putenv('EMAIL_LOG_ATTACHMENT_DISK');
+            $config = require __DIR__ . '/../../config/email_log.php';
+            $this->assertSame('email_log_attachments', $config['disk']);
+        } finally {
+            putenv('EMAIL_LOG_DISK');
+            putenv('EMAIL_LOG_ATTACHMENT_DISK');
+        }
+    }
+
     public function test_it_fires_an_email_logged_event()
     {
         $logged = null;

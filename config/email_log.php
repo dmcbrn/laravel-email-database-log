@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'disk' => env('EMAIL_LOG_ATTACHMENT_DISK','email_log_attachments'),
+    'disk' => env('EMAIL_LOG_DISK', env('EMAIL_LOG_ATTACHMENT_DISK', 'email_log_attachments')),
     'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
     'access_middleware_api' => env('EMAIL_LOG_ACCESS_MIDDLEWARE_API',null),
     'routes_prefix' => env('EMAIL_LOG_ROUTES_PREFIX',''),
