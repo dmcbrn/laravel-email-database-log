@@ -188,6 +188,20 @@ class EmailLogPagesTest extends TestCase
         $this->assertSame("attachment; filename=\"100 done.txt\"; filename*=utf-8''100%25%20done.txt", $second->headers->get('Content-Disposition'));
     }
 
+    public function test_attachment_names_with_plus_signs_or_percent_codes_can_be_downloaded()
+    {
+        // Stored paths are plain names, never URL-encoded, so "+" and "%20" must not be decoded.
+        $log = $this->sendEmail('Names', 'jane@example.com', ['C++ guide.pdf' => 'plus', '50%20off.txt' => 'percent']);
+
+        $first = $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 0]));
+        $first->assertOk();
+        $this->assertSame('plus', $first->getContent());
+
+        $second = $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 1]));
+        $second->assertOk();
+        $this->assertSame('percent', $second->getContent());
+    }
+
     public function test_the_api_lists_logged_emails()
     {
         $this->sendEmail('First', 'jane@example.com');

@@ -54,7 +54,7 @@ class EmailLogController extends Controller {
         $attachmentPaths = array_filter(explode(', ', (string) $email->attachments));
         if (!isset($attachmentPaths[$attachment]))
             abort(404);
-        $attachmentFullPath = urldecode($attachmentPaths[$attachment]);
+        $attachmentFullPath = $attachmentPaths[$attachment];
 
         //get file and mime type (404 if the file is no longer on the disk)
         $disk = Storage::disk(config('email_log.disk'));
