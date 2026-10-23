@@ -105,6 +105,27 @@ class EmailLogPagesTest extends TestCase
             ->assertSee('hello.txt');
     }
 
+    public function test_the_email_body_is_shown_in_a_sandboxed_frame()
+    {
+        Mail::html('<p>Hi</p><script>alert("logged")</script>', function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Script in the body');
+        });
+        $log = EmailLog::first();
+
+        $response = $this->get(route('email-log.show', ['id' => $log->id]))->assertOk();
+
+        // The body's HTML must not end up in the page itself, where its scripts would run...
+        $response->assertDontSee('<script>alert', false);
+
+        // ...but, escaped, inside an iframe that is sandboxed without "allow-scripts" and "allow-same-origin".
+        $response->assertSee(
+            '<iframe sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="&lt;p&gt;Hi&lt;/p&gt;&lt;script&gt;alert(&quot;logged&quot;)&lt;/script&gt;"',
+            false
+        );
+    }
+
     public function test_an_attachment_can_be_downloaded()
     {
         $log = $this->sendEmail('Download me', 'jane@example.com', ['hello.txt' => 'file contents']);

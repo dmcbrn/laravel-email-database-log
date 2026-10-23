@@ -13,7 +13,7 @@
             <li>To: {{ $email->to }}</li>
             <li>Subject: {{ $email->subject }}</li>
             <li>Body: <br>
-                <div>{!! $email->body !!}</div>
+                <iframe sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="{{ $email->body }}" title="Email body" style="width: 100%; height: 600px; border: 1px solid #ccc; background: white;"></iframe>
             </li>
             <li>Attachments:
                 @if(count($email->attachments))
