@@ -58,6 +58,24 @@ class EmailLoggingTest extends TestCase
         $this->assertSame('array', $this->sendEmail()->mail_driver);
     }
 
+    public function test_it_logs_the_transport_of_the_mailer_that_sent_the_email()
+    {
+        config([
+            'mail.default' => 'smtp',  // the default mailer is not used in this test
+            'mail.mailers.smtp' => ['transport' => 'smtp'],
+            'mail.mailers.second' => ['transport' => 'array'],
+        ]);
+
+        // Not the default mailer: this email is sent through a mailer of its own.
+        Mail::mailer('second')->raw('Hello there', function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Second mailer');
+        });
+
+        $this->assertSame('array', EmailLog::first()->mail_driver);
+    }
+
     public function test_it_logs_an_html_email()
     {
         Mail::html('<p>Hi <b>there</b></p>', function ($message) {

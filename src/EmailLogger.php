@@ -62,7 +62,7 @@ class EmailLogger
             'headers' => $headers->toString(),
             'attachments' => empty($attachments) ? null : implode(', ', $attachments),
             'messageId' => $messageId,
-            'mail_driver' => $this->getMailDriver(),
+            'mail_driver' => $this->getMailDriver($event),
         ];
 
         //only if the migration adding this column has been run, so a missing migration
@@ -123,19 +123,21 @@ class EmailLogger
     }
 
     /**
-     * The mail driver, read the same way Laravel does.
+     * The mail driver (transport) of the mailer that sent the email.
      *
+     * @param  MessageSending  $event
      * @return null|string
      */
-    protected function getMailDriver()
+    protected function getMailDriver(MessageSending $event)
     {
         // Old (Laravel <= 6 style) config files still have "mail.driver".
         if (config('mail.driver')) {
             return config('mail.driver');
         }
 
-        // Since Laravel 7, "mail.default" names the default mailer, and its "transport" is the driver.
-        $mailer = config('mail.default');
+        // Since Laravel 7 each mailer has a "transport" (smtp, mailgun, ses, ...). Laravel 9 tells us
+        // which mailer is sending; fall back to the default mailer ("mail.default").
+        $mailer = $event->data['mailer'] ?? config('mail.default');
 
         return config("mail.mailers.{$mailer}.transport", $mailer);
     }
