@@ -166,6 +166,8 @@ If you published the config file before this setting existed, the 24-hour defaul
 'max_age' => env('EMAIL_LOG_MAILGUN_WEBHOOK_MAX_AGE', 86400),
 ```
 
+If your site is behind Cloudflare, make sure Cloudflare lets Mailgun's webhook requests through. Mailgun sends them from Google Cloud, and Cloudflare's *Bot Fight Mode* answers them with a challenge, so they never reach your site. Bot Fight Mode cannot be bypassed for a single path with WAF custom rules or Page Rules, and Mailgun advises against allowing its IP addresses, so turn Bot Fight Mode off (or, on paid plans, use Super Bot Fight Mode with a skip rule for the webhook URL). Also add the webhook URL as an exception to any of your own rules that challenge or block visitors. This is safe: the package rejects every request that is not signed with your webhook signing key.
+
 ## Running the tests
 
 The package has a test suite that boots a throw-away Laravel app with [Orchestra Testbench](https://github.com/orchestral/testbench), using an in-memory SQLite database. Nothing is sent and nothing is left behind.
@@ -176,6 +178,16 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 5.4.0 to 5.5.0 - SECURITY FIXES, INLINE IMAGES, NEW MIGRATION
+
+This release fixes two security issues on the email log pages and shows inline images on the email detail page. When upgrading:
+
+- **Run the new migration:** `php artisan migrate` adds an `inline_attachments` column to the `email_log` table. Until it has run, emails are logged as before, but inline images are not shown on the detail page.
+- **Email body:** the detail page now shows the body in a sandboxed iframe, so scripts in a logged email no longer run on your site. If you override the package's `show.blade.php` (in `resources/views/vendor/email-logger/`), replace `{!! $email->body !!}` with the iframe from the package's `views/show.blade.php`, which uses `{{ $body }}`.
+- **Attachments:** only PNG, JPEG, GIF and WebP images open in the browser; all other attachments are downloaded.
+- **API:** the single-email response now includes `inline_attachments`. Its `body` is still the original HTML; if your own code displays it, isolate it the same way.
+- If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 5.3.3 to 5.4.0 - BUG FIXES, MAILGUN WEBHOOK SETTINGS
 
