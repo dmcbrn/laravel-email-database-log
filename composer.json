@@ -10,8 +10,8 @@
         }
     ],
     "require": {
-        "php": "^7.3|^8.0",
-        "laravel/framework": "^8.0",
+        "php": "^8.0.2",
+        "laravel/framework": "^9.0",
         "doctrine/dbal": "^2.13.3|^3.1.4"
     },
     "require-dev": {

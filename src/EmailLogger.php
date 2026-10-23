@@ -6,6 +6,9 @@ use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailLogged;
+use Symfony\Component\Mime\Address;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\DataPart;
 
 class EmailLogger
 {
@@ -16,41 +19,49 @@ class EmailLogger
      */
     public function handle(MessageSending $event)
     {
+        /** @var Email $message */
         $message = $event->message;
+        $headers = $message->getHeaders();
 
-        $messageId = strtok($message->getId(), '@');
+        //Symfony only creates the Message-ID while sending, with a new random value every time it is
+        //asked for. Set it now, so the ID logged here is the one that is sent (Mailgun webhooks find
+        //emails by it).
+        if (!$headers->has('Message-ID')) {
+            $headers->addIdHeader('Message-ID', $message->generateMessageId());
+        }
+        $messageId = strtok($headers->get('Message-ID')->getId(), '@');
 
         $attachments = [];
         $usedNames = [];
         $inlineAttachments = [];
-        foreach ($message->getChildren() as $child) {
-            //attachments and inline (embedded) files, e.g. Swift_Attachment and Swift_Image
-            if ($child instanceof \Swift_Mime_Attachment) {
-                $position = count($attachments) + 1;
-                $name = $this->safeAttachmentName($child->getFilename(), $position);
-                $name = $this->uniqueAttachmentName($name, $position, $usedNames);
-                $attachmentPath = $messageId . '/' . $name;
-                Storage::disk(config('email_log.disk'))->put($attachmentPath, $child->getBody());
-                $attachments[] = $attachmentPath;
-                //remember which stored file an inline image is, so the email can be shown with its images
-                if ($child instanceof \Swift_Mime_EmbeddedFile) {
-                    $inlineAttachments[$child->getId()] = $attachmentPath;
-                }
+        foreach ($message->getAttachments() as $part) {
+            //attachments and inline (embedded) files
+            $originalName = $this->attachmentName($part);
+            $position = count($attachments) + 1;
+            $name = $this->safeAttachmentName($originalName, $position);
+            $name = $this->uniqueAttachmentName($name, $position, $usedNames);
+            $attachmentPath = $messageId . '/' . $name;
+            Storage::disk(config('email_log.disk'))->put($attachmentPath, $part->getBody());
+            $attachments[] = $attachmentPath;
+
+            //remember which stored file an inline image is, so the email can be shown with its images;
+            //Laravel refers to inline files in the body by their name ("cid:<name>")
+            if ($this->isInline($part) && $originalName !== null) {
+                $inlineAttachments[$originalName] = $attachmentPath;
             }
         }
 
         $fields = [
             'date' => date('Y-m-d H:i:s'),
-            'from' => $this->formatAddressField($message, 'From'),
-            'to' => $this->formatAddressField($message, 'To'),
-            'cc' => $this->formatAddressField($message, 'Cc'),
-            'bcc' => $this->formatAddressField($message, 'Bcc'),
-            'subject' => $message->getSubject(),
-            'body' => $message->getBody(),
-            'headers' => (string)$message->getHeaders(),
+            'from' => $this->formatAddresses($message->getFrom()),
+            'to' => $this->formatAddresses($message->getTo()),
+            'cc' => $this->formatAddresses($message->getCc()),
+            'bcc' => $this->formatAddresses($message->getBcc()),
+            'subject' => (string) $message->getSubject(),
+            'body' => $this->getBody($message),
+            'headers' => $headers->toString(),
             'attachments' => empty($attachments) ? null : implode(', ', $attachments),
             'messageId' => $messageId,
-            'mail_driver' => $this->getMailDriver(),
             'mail_driver' => $this->getMailDriver(),
         ];
 
@@ -66,7 +77,53 @@ class EmailLogger
     }
 
     /**
-     * The mail driver, read the same way Laravel 8 does.
+     * The HTML version of the body if there is one, otherwise the text version.
+     *
+     * @param  Email  $message
+     * @return string
+     */
+    protected function getBody(Email $message)
+    {
+        $body = $message->getHtmlBody() ?? $message->getTextBody() ?? '';
+
+        //Symfony also accepts a stream as the body; read it and rewind it for sending
+        if (is_resource($body)) {
+            $stream = $body;
+            $body = stream_get_contents($stream);
+            if (stream_get_meta_data($stream)['seekable'] ?? false) {
+                rewind($stream);
+            }
+        }
+
+        return (string) $body;
+    }
+
+    /**
+     * The file name of an attachment or inline file, as given when it was attached.
+     * Read from the part's headers: DataPart::getFilename() only exists from Symfony 6.1,
+     * and Laravel 9 on PHP 8.0 uses Symfony 6.0.
+     *
+     * @param  DataPart  $part
+     * @return null|string
+     */
+    protected function attachmentName(DataPart $part)
+    {
+        return $part->getPreparedHeaders()->getHeaderParameter('Content-Disposition', 'filename');
+    }
+
+    /**
+     * Whether the part is an inline (embedded) file rather than a normal attachment.
+     *
+     * @param  DataPart  $part
+     * @return bool
+     */
+    protected function isInline(DataPart $part)
+    {
+        return $part->getPreparedHeaders()->getHeaderBody('Content-Disposition') === 'inline';
+    }
+
+    /**
+     * The mail driver, read the same way Laravel does.
      *
      * @return null|string
      */
@@ -127,30 +184,21 @@ class EmailLogger
     }
 
     /**
-     * Format address strings for sender, to, cc, bcc.
+     * Format a list of addresses as "Name <email>, other@example.com".
      *
-     * @param $message
-     * @param $field
+     * @param  Address[]  $addresses
      * @return null|string
      */
-    function formatAddressField($message, $field)
+    protected function formatAddresses(array $addresses)
     {
-        $headers = $message->getHeaders();
-
-        if (!$headers->has($field)) {
+        if (empty($addresses)) {
             return null;
         }
 
-        $mailboxes = $headers->get($field)->getFieldBodyModel();
-
-        $strings = [];
-        foreach ($mailboxes as $email => $name) {
-            $mailboxStr = $email;
-            if (null !== $name) {
-                $mailboxStr = $name . ' <' . $mailboxStr . '>';
-            }
-            $strings[] = $mailboxStr;
-        }
-        return implode(', ', $strings);
+        return implode(', ', array_map(function (Address $address) {
+            return $address->getName() !== ''
+                ? $address->getName() . ' <' . $address->getAddress() . '>'
+                : $address->getAddress();
+        }, $addresses));
     }
 }
