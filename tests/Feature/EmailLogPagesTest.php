@@ -4,6 +4,7 @@ namespace Dmcbrn\LaravelEmailDatabaseLog\Tests\Feature;
 
 use Dmcbrn\LaravelEmailDatabaseLog\Tests\TestCase;
 use Dmcbrn\LaravelEmailDatabaseLog\EmailLog;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -139,6 +140,52 @@ class EmailLogPagesTest extends TestCase
         Storage::disk('email_log_attachments')->delete($log->messageId . '/hello.txt');
 
         $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 0]))->assertNotFound();
+    }
+
+    public function test_attachments_that_could_run_scripts_are_downloaded_not_opened()
+    {
+        // HTML and SVG files can contain scripts, which would run on this site if opened in the browser.
+        Mail::raw('Hello there', function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Risky files')
+                ->attachData('<html><body><script>alert(1)</script></body></html>', 'page.html', ['mime' => 'text/html'])
+                ->attachData('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', 'drawing.svg', ['mime' => 'image/svg+xml']);
+        });
+        $log = EmailLog::first();
+
+        foreach (['page.html', 'drawing.svg'] as $index => $name) {
+            $response = $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => $index]));
+
+            $response->assertOk();
+            $this->assertSame('attachment; filename=' . $name, $response->headers->get('Content-Disposition'));
+            $this->assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+        }
+    }
+
+    public function test_images_are_shown_in_the_browser()
+    {
+        // A real 1x1 pixel PNG: the file type is detected from the content, not from the name.
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC');
+        $log = $this->sendEmail('Image', 'jane@example.com', ['logo.png' => $png]);
+
+        $response = $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 0]));
+
+        $response->assertOk();
+        $this->assertSame('image/png', $response->headers->get('Content-Type'));
+        $this->assertSame('inline; filename=logo.png', $response->headers->get('Content-Disposition'));
+        $this->assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+    }
+
+    public function test_attachment_names_with_special_characters_can_be_downloaded()
+    {
+        $log = $this->sendEmail('Names', 'jane@example.com', ['račun.pdf' => 'one', '100% done.txt' => 'two']);
+
+        $first = $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 0]));
+        $this->assertSame("attachment; filename=racun.pdf; filename*=utf-8''ra%C4%8Dun.pdf", $first->headers->get('Content-Disposition'));
+
+        $second = $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 1]));
+        $this->assertSame("attachment; filename=\"100 done.txt\"; filename*=utf-8''100%25%20done.txt", $second->headers->get('Content-Disposition'));
     }
 
     public function test_the_api_lists_logged_emails()

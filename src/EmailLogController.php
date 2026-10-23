@@ -6,6 +6,8 @@ use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Dmcbrn\LaravelEmailDatabaseLog\Events\EventFactory;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class EmailLogController extends Controller {
 
@@ -61,8 +63,32 @@ class EmailLogController extends Controller {
         $file = $disk->get($attachmentFullPath);
         $mimeType = $disk->mimeType($attachmentFullPath);
 
-        //return file
-        return response($file, 200)->header('Content-Type', $mimeType);
+        //return file: only plain images may be shown in the browser; everything else (e.g. HTML or SVG,
+        //which can contain scripts) is downloaded, so it can't run on this site
+        $mimeType = $mimeType ?: 'application/octet-stream';
+        $inlineTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+        $disposition = in_array($mimeType, $inlineTypes, true) ? 'inline' : 'attachment';
+
+        return response($file, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', $this->contentDisposition($disposition, $attachmentFullPath))
+            ->header('X-Content-Type-Options', 'nosniff');
+    }
+
+    private function contentDisposition($disposition, $path)
+    {
+        //the file name is the last part of the stored path
+        $parts = explode('/', str_replace('\\', '/', $path));
+        $name = end($parts);
+        if ($name === '')
+            $name = 'attachment';
+
+        //a plain ASCII version of the name for older browsers ("%" is not allowed there)
+        $fallback = preg_replace('/[^\x20-\x7e]/', '', str_replace('%', '', Str::ascii($name)));
+        if ($fallback === '')
+            $fallback = 'attachment';
+
+        return HeaderUtils::makeDisposition($disposition, $name, $fallback);
     }
 
     public function createEvent(Request $request)
