@@ -1,0 +1,1 @@
+<p>Our logo: <img src="{{ $message->embedData($png, 'logo.png', 'image/png') }}"></p>

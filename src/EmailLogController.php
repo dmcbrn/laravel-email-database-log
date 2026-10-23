@@ -10,6 +10,8 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class EmailLogController extends Controller {
+    //attachment types that may be shown in the browser (everything else is downloaded)
+    private const INLINE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
     public function index(Request $request)
     {
@@ -34,8 +36,11 @@ class EmailLogController extends Controller {
         //get email
         $email = $this->getEmail($id, false);
 
+        //the body with its inline images embedded, for the sandboxed frame on the page
+        $body = $this->bodyWithInlineImages($email);
+
         //return
-        return view('email-logger::show', compact('email'));
+        return view('email-logger::show', compact('email', 'body'));
     }
 
     public function showApi(int $id)
@@ -66,8 +71,7 @@ class EmailLogController extends Controller {
         //return file: only plain images may be shown in the browser; everything else (e.g. HTML or SVG,
         //which can contain scripts) is downloaded, so it can't run on this site
         $mimeType = $mimeType ?: 'application/octet-stream';
-        $inlineTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-        $disposition = in_array($mimeType, $inlineTypes, true) ? 'inline' : 'attachment';
+        $disposition = in_array($mimeType, self::INLINE_TYPES, true) ? 'inline' : 'attachment';
 
         return response($file, 200)
             ->header('Content-Type', $mimeType)
@@ -89,6 +93,28 @@ class EmailLogController extends Controller {
             $fallback = 'attachment';
 
         return HeaderUtils::makeDisposition($disposition, $name, $fallback);
+    }
+
+    private function bodyWithInlineImages(EmailLog $email)
+    {
+        $body = (string) $email->body;
+        $disk = Storage::disk(config('email_log.disk'));
+
+        //replace each "cid:<id>" with the image itself (a data: URL), so the sandboxed frame
+        //doesn't have to load it from this site; only plain images whose file still exists
+        foreach ((array) $email->inline_attachments as $contentId => $path) {
+            if (!$disk->exists($path))
+                continue;
+
+            $mimeType = $disk->mimeType($path);
+            if (!in_array($mimeType, self::INLINE_TYPES, true))
+                continue;
+
+            $dataUrl = 'data:' . $mimeType . ';base64,' . base64_encode($disk->get($path));
+            $body = str_replace('cid:' . $contentId, $dataUrl, $body);
+        }
+
+        return $body;
     }
 
     public function createEvent(Request $request)

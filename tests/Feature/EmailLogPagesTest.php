@@ -7,6 +7,7 @@ use Dmcbrn\LaravelEmailDatabaseLog\EmailLog;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View;
 
 /**
  * The web pages and the JSON API that show the logged emails.
@@ -124,6 +125,26 @@ class EmailLogPagesTest extends TestCase
             '<iframe sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="&lt;p&gt;Hi&lt;/p&gt;&lt;script&gt;alert(&quot;logged&quot;)&lt;/script&gt;"',
             false
         );
+    }
+
+    public function test_the_email_body_is_shown_with_its_inline_images()
+    {
+        // A real 1x1 pixel PNG, embedded by a mail view (tests/views/inline-image.blade.php).
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC');
+        View::addLocation(__DIR__ . '/../views');
+
+        Mail::send('inline-image', ['png' => $png], function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Inline image');
+        });
+        $log = EmailLog::first();
+
+        $response = $this->get(route('email-log.show', ['id' => $log->id]))->assertOk();
+
+        // The cid: reference is replaced by the image itself (escaped, like everything in the frame's srcdoc).
+        $response->assertSee('&lt;img src=&quot;data:image/png;base64,' . base64_encode($png) . '&quot;&gt;', false);
+        $response->assertDontSee('cid:', false);
     }
 
     public function test_an_attachment_can_be_downloaded()
