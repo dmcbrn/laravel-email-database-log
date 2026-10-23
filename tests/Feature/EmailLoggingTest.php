@@ -7,6 +7,7 @@ use Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailLogged;
 use Dmcbrn\LaravelEmailDatabaseLog\Tests\TestCase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 
@@ -163,6 +164,43 @@ class EmailLoggingTest extends TestCase
         $log = EmailLog::first();
         $this->assertSame($log->messageId . '/hello.txt, ' . $log->messageId . '/logo.png', $log->attachments);
         $this->assertSame('fake image bytes', Storage::disk('email_log_attachments')->get($log->messageId . '/logo.png'));
+    }
+
+    public function test_it_remembers_which_stored_file_each_inline_image_is()
+    {
+        $cid = null;
+        Mail::html('<p>Our logo</p>', function ($message) use (&$cid) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Inline image')
+                ->attachData('file contents', 'hello.txt', ['mime' => 'text/plain']);
+
+            // Returns "cid:<id>", the value a mail view puts into <img src="...">.
+            $cid = $message->embedData('fake image bytes', 'logo.png', 'image/png');
+        });
+
+        $log = EmailLog::first();
+
+        // Only the inline image, not the normal attachment.
+        $this->assertSame([substr($cid, 4) => $log->messageId . '/logo.png'], $log->inline_attachments);
+    }
+
+    public function test_emails_are_still_logged_when_the_inline_images_migration_has_not_run()
+    {
+        // As in an app that installed the new version without running "php artisan migrate".
+        Schema::table('email_log', function ($table) {
+            $table->dropColumn('inline_attachments');
+        });
+
+        Mail::html('<p>Our logo</p>', function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Inline image')
+                ->embedData('fake image bytes', 'logo.png', 'image/png');
+        });
+
+        $log = EmailLog::first();
+        $this->assertSame($log->messageId . '/logo.png', $log->attachments);
     }
 
     public function test_attachments_with_the_same_name_are_all_kept()

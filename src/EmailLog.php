@@ -37,6 +37,7 @@ class EmailLog extends Model
         'attachments',
         'messageId',
         'mail_driver',
+        'inline_attachments',
     ];
 
     /**
@@ -46,6 +47,15 @@ class EmailLog extends Model
      */
     protected $dates = [
         'date',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'inline_attachments' => 'array',
     ];
 
     /**

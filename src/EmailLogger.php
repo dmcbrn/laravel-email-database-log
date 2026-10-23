@@ -3,6 +3,7 @@
 namespace Dmcbrn\LaravelEmailDatabaseLog;
 
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailLogged;
 
@@ -21,6 +22,7 @@ class EmailLogger
 
         $attachments = [];
         $usedNames = [];
+        $inlineAttachments = [];
         foreach ($message->getChildren() as $child) {
             //attachments and inline (embedded) files, e.g. Swift_Attachment and Swift_Image
             if ($child instanceof \Swift_Mime_Attachment) {
@@ -30,10 +32,14 @@ class EmailLogger
                 $attachmentPath = $messageId . '/' . $name;
                 Storage::disk(config('email_log.disk'))->put($attachmentPath, $child->getBody());
                 $attachments[] = $attachmentPath;
+                //remember which stored file an inline image is, so the email can be shown with its images
+                if ($child instanceof \Swift_Mime_EmbeddedFile) {
+                    $inlineAttachments[$child->getId()] = $attachmentPath;
+                }
             }
         }
 
-        $emailLog = EmailLog::create([
+        $fields = [
             'date' => date('Y-m-d H:i:s'),
             'from' => $this->formatAddressField($message, 'From'),
             'to' => $this->formatAddressField($message, 'To'),
@@ -45,7 +51,16 @@ class EmailLogger
             'attachments' => empty($attachments) ? null : implode(', ', $attachments),
             'messageId' => $messageId,
             'mail_driver' => $this->getMailDriver(),
-        ]);
+            'mail_driver' => $this->getMailDriver(),
+        ];
+
+        //only if the migration adding this column has been run, so a missing migration
+        //can never stop emails from being logged (and sent)
+        if (!empty($inlineAttachments) && Schema::hasColumn('email_log', 'inline_attachments')) {
+            $fields['inline_attachments'] = $inlineAttachments;
+        }
+
+        $emailLog = EmailLog::create($fields);
 
         event(new EmailLogged($emailLog));
     }
