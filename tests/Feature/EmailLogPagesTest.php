@@ -147,6 +147,25 @@ class EmailLogPagesTest extends TestCase
         $response->assertDontSee('cid:', false);
     }
 
+    public function test_a_plain_text_body_is_shown_as_text_with_its_line_breaks()
+    {
+        Mail::raw("Line one\nLine two <name>", function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Plain text');
+        });
+        $log = EmailLog::first();
+
+        $response = $this->get(route('email-log.show', ['id' => $log->id]))->assertOk();
+
+        // Escaped twice: once as text in the frame's document, once more for the srcdoc attribute.
+        $response->assertSee(
+            'srcdoc="&lt;pre style=&quot;white-space: pre-wrap; word-wrap: break-word; margin: 0;&quot;&gt;Line one' . "\n"
+            . 'Line two &amp;lt;name&amp;gt;&lt;/pre&gt;"',
+            false
+        );
+    }
+
     public function test_an_attachment_can_be_downloaded()
     {
         $log = $this->sendEmail('Download me', 'jane@example.com', ['hello.txt' => 'file contents']);

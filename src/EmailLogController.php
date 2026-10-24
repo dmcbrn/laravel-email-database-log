@@ -36,8 +36,11 @@ class EmailLogController extends Controller {
         //get email
         $email = $this->getEmail($id, false);
 
-        //the body with its inline images embedded, for the sandboxed frame on the page
-        $body = $this->bodyWithInlineImages($email);
+        //the body for the sandboxed frame on the page: plain text escaped with its line breaks,
+        //HTML with its inline images embedded
+        $body = $email->body_content_type === 'text/plain'
+            ? $this->plainTextBody($email)
+            : $this->bodyWithInlineImages($email);
 
         //return
         return view('email-logger::show', compact('email', 'body'));
@@ -115,6 +118,15 @@ class EmailLogController extends Controller {
         }
 
         return $body;
+    }
+
+    private function plainTextBody(EmailLog $email)
+    {
+        //escaped, so text like "<name>" is shown as it is; pre-wrap keeps the line breaks and still
+        //wraps long lines, break-word also breaks long words such as URLs
+        return '<pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">'
+            . e($email->body)
+            . '</pre>';
     }
 
     public function createEvent(Request $request)
