@@ -3,6 +3,7 @@
 namespace Dmcbrn\LaravelEmailDatabaseLog\Tests\Feature;
 
 use Dmcbrn\LaravelEmailDatabaseLog\EmailLog;
+use Dmcbrn\LaravelEmailDatabaseLog\EmailLogEvent;
 use Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailLogged;
 use Dmcbrn\LaravelEmailDatabaseLog\Tests\TestCase;
 use Illuminate\Support\Facades\Event;
@@ -332,5 +333,15 @@ class EmailLoggingTest extends TestCase
         $this->assertNotNull($logged, 'The EmailLogged event was not fired.');
         $this->assertSame($log->id, $logged->emailLog->id);
         $this->assertSame('Event subject', $logged->emailLog->subject);
+    }
+
+    public function test_deleting_an_email_through_the_model_also_deletes_its_events()
+    {
+        $log = $this->sendEmail();
+        EmailLogEvent::create(['messageId' => $log->messageId, 'event' => 'delivered', 'data' => '{}']);
+
+        $log->delete();
+
+        $this->assertSame(0, EmailLogEvent::count());
     }
 }

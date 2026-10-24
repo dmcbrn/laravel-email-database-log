@@ -60,6 +60,20 @@ class EmailLog extends Model
     ];
 
     /**
+     * Delete an email's events together with the email, on every database. This covers deletes
+     * through the model ($email->delete(), EmailLog::destroy()); bulk query deletes such as
+     * EmailLog::where(...)->delete() do not fire model events.
+     *
+     * @return void
+     */
+    protected static function booted()
+    {
+        static::deleting(function (EmailLog $email) {
+            $email->events()->delete();
+        });
+    }
+
+    /**
      * The Events belonging to this Email.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany

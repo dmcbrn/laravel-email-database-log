@@ -2,6 +2,7 @@
 
 namespace Dmcbrn\LaravelEmailDatabaseLog\Tests\Feature;
 
+use Dmcbrn\LaravelEmailDatabaseLog\EmailLogEvent;
 use Dmcbrn\LaravelEmailDatabaseLog\Tests\TestCase;
 use Dmcbrn\LaravelEmailDatabaseLog\EmailLog;
 use Illuminate\Support\Facades\Mail;
@@ -338,6 +339,21 @@ class EmailLogPagesTest extends TestCase
         // SQLite and MySQL only agree if the date is sent in the format dates are stored in.
         $bindings = collect(DB::getQueryLog())->pluck('bindings')->flatten()->all();
         $this->assertContains('2021-01-03 00:00:00', $bindings);
+    }
+
+    public function test_deleting_old_emails_also_deletes_their_events()
+    {
+        $old = $this->sendEmail('Old email');
+        $new = $this->sendEmail('New email');
+        EmailLog::where('id', $old->id)->update(['date' => '2020-01-01 10:00:00']);
+
+        EmailLogEvent::create(['messageId' => $old->messageId, 'event' => 'delivered', 'data' => '{}']);
+        EmailLogEvent::create(['messageId' => $new->messageId, 'event' => 'delivered', 'data' => '{}']);
+
+        $this->post(route('email-log.delete-old'), ['date' => '2021-01-01']);
+
+        $this->assertSame(0, EmailLogEvent::where('messageId', $old->messageId)->count());
+        $this->assertSame(1, EmailLogEvent::where('messageId', $new->messageId)->count());
     }
 
     public function test_the_list_page_can_be_searched_with_empty_filters()
