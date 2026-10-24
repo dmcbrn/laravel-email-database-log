@@ -11,11 +11,11 @@
     ],
     "require": {
         "php": "^8.0.2",
-        "laravel/framework": "^9.0",
+        "laravel/framework": "^9.52",
         "doctrine/dbal": "^2.13.3|^3.1.4"
     },
     "require-dev": {
-        "orchestra/testbench": "^7.0"
+        "orchestra/testbench": "^7.22.1"
     },
     "autoload": {
         "psr-4": {
