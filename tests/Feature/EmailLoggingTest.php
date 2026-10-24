@@ -224,6 +224,8 @@ class EmailLoggingTest extends TestCase
 
     public function test_emails_are_still_logged_when_the_body_type_migration_has_not_run()
     {
+        $this->skipOnMySql();
+
         // As in an app that installed the new version without running "php artisan migrate".
         Schema::table('email_log', function ($table) {
             $table->dropColumn('body_content_type');
@@ -234,6 +236,8 @@ class EmailLoggingTest extends TestCase
 
     public function test_emails_are_still_logged_when_the_inline_images_migration_has_not_run()
     {
+        $this->skipOnMySql();
+
         // As in an app that installed the new version without running "php artisan migrate".
         Schema::table('email_log', function ($table) {
             $table->dropColumn('inline_attachments');
