@@ -179,6 +179,14 @@ composer test
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
 
+## Upgrade from 5.5.0 to 5.6.0 - PLAIN-TEXT EMAILS, NEW MIGRATION
+
+The email detail page now shows plain-text emails with their line breaks, and shows text like `<name>` as written instead of treating it as HTML. When upgrading:
+
+- **Run the new migration:** `php artisan migrate` adds a `body_content_type` column (`text/plain` or `text/html`) to the `email_log` table. Until it has run, emails are logged and shown as before. Emails logged before the upgrade are shown as before.
+- **API:** the single-email response now includes `body_content_type`, so your own code can tell plain-text bodies from HTML ones.
+- If you use queues, restart your queue workers after upgrading.
+
 ## Upgrade from 5.4.0 to 5.5.0 - SECURITY FIXES, INLINE IMAGES, NEW MIGRATION
 
 This release fixes two security issues on the email log pages and shows inline images on the email detail page. When upgrading:
