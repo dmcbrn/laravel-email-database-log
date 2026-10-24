@@ -38,6 +38,7 @@ class EmailLog extends Model
         'messageId',
         'mail_driver',
         'inline_attachments',
+        'body_content_type',
     ];
 
     /**
