@@ -5,8 +5,8 @@ on:
   pull_request:
 
 env:
-  # Laravel 11 is end-of-life, and recent Composer versions refuse packages with known
-  # security advisories. These are test runs, not a real app.
+  # Recent Composer versions refuse package versions with known security advisories, which
+  # older Laravel 12 releases have. These are test runs, not a real app.
   COMPOSER_NO_BLOCKING: 1
   COMPOSER_NO_SECURITY_BLOCKING: 1
 
@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.2', '8.3', '8.4']
+        php: ['8.2', '8.3', '8.4', '8.5']
         dependencies: ['lowest', 'highest']
 
     name: PHP ${{ matrix.php }} / ${{ matrix.dependencies }} dependencies
@@ -43,10 +43,10 @@ jobs:
       - name: Run tests
         run: vendor/bin/phpunit
 
-  # MySQL: the oldest version Laravel 11 supports.
+  # MySQL: the oldest version Laravel 12 supports.
   mysql:
     runs-on: ubuntu-latest
-    name: MySQL 5.7 / PHP 8.4
+    name: MySQL 5.7 / PHP 8.5
 
     services:
       mysql:
@@ -63,7 +63,7 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           extensions: mbstring, fileinfo, dom, curl, pdo_mysql
           coverage: none
 
@@ -80,10 +80,10 @@ jobs:
           EMAIL_LOG_TEST_DB_USERNAME: root
           EMAIL_LOG_TEST_DB_PASSWORD: password
 
-  # PostgreSQL: the oldest version Laravel 11 supports.
+  # PostgreSQL: the oldest version Laravel 12 supports.
   pgsql:
     runs-on: ubuntu-latest
-    name: PostgreSQL 10 / PHP 8.4
+    name: PostgreSQL 10 / PHP 8.5
 
     services:
       postgres:
@@ -101,7 +101,7 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           extensions: mbstring, fileinfo, dom, curl, pdo_pgsql
           coverage: none
 
