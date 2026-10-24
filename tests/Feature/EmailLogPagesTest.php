@@ -285,6 +285,21 @@ class EmailLogPagesTest extends TestCase
             ->assertJsonPath('email.messageId', $log->messageId);
     }
 
+    public function test_the_api_returns_dates_in_iso_8601_format()
+    {
+        $log = $this->sendEmail('Dated email');
+        EmailLog::where('id', $log->id)->update(['date' => '2021-01-02 03:04:05']);
+
+        // Both API endpoints return the date converted to a date, in ISO 8601 (UTC).
+        $this->getJson(route('api.email-log.show', ['id' => $log->id]))
+            ->assertOk()
+            ->assertJsonPath('email.date', '2021-01-02T03:04:05.000000Z');
+
+        $this->getJson(route('api.email-log'))
+            ->assertOk()
+            ->assertJsonPath('data.0.date', '2021-01-02T03:04:05.000000Z');
+    }
+
     public function test_old_emails_can_be_deleted()
     {
         $old = $this->sendEmail('Old email', 'jane@example.com', ['old.txt' => 'old file']);

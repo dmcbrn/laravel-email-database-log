@@ -30,15 +30,6 @@ class EmailLogEvent extends Model
     ];
 
     /**
-     * The attributes that are dates.
-     *
-     * @var array
-     */
-    protected $dates = [
-        'created_at', 'updated_at',
-    ];
-
-    /**
      * The Email to which this Event belongs to.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
