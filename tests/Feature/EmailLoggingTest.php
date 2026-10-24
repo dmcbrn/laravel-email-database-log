@@ -187,21 +187,27 @@ class EmailLoggingTest extends TestCase
 
     public function test_it_remembers_which_stored_file_each_inline_image_is()
     {
-        $cid = null;
-        Mail::html('<p>Our logo</p>', function ($message) use (&$cid) {
+        $inlinePart = null;
+        Mail::html('<p>Our logo</p>', function ($message) use (&$inlinePart) {
             $message->from('noreply@example.com')
                 ->to('jane@example.com')
                 ->subject('Inline image')
                 ->attachData('file contents', 'hello.txt', ['mime' => 'text/plain']);
 
-            // Returns "cid:<id>", the value a mail view puts into <img src="...">.
-            $cid = $message->embedData('fake image bytes', 'logo.png', 'image/png');
+            $message->embedData('fake image bytes', 'logo.png', 'image/png');
+
+            // The inline part: its Content-ID is what "cid:<id>" refers to.
+            $attachments = $message->getSymfonyMessage()->getAttachments();
+            $inlinePart = end($attachments);
         });
 
         $log = EmailLog::first();
 
-        // Only the inline image, not the normal attachment.
-        $this->assertSame([substr($cid, 4) => $log->messageId . '/logo.png'], $log->inline_attachments);
+        // Only the inline image, not the normal attachment: under its name and under its Content-ID.
+        $this->assertSame([
+            'logo.png' => $log->messageId . '/logo.png',
+            $inlinePart->getContentId() => $log->messageId . '/logo.png',
+        ], $log->inline_attachments);
     }
 
     public function test_it_records_whether_the_body_is_plain_text_or_html()

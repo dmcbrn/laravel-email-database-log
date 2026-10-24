@@ -148,6 +148,25 @@ class EmailLogPagesTest extends TestCase
         $response->assertDontSee('cid:', false);
     }
 
+    public function test_an_inline_image_referenced_by_its_name_is_shown()
+    {
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC');
+
+        // HTML written by hand can refer to an inline file by its name instead of its Content-ID.
+        Mail::html('<p>Our logo: <img src="cid:logo.png"></p>', function ($message) use ($png) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Inline image by name');
+            $message->embedData($png, 'logo.png', 'image/png');
+        });
+        $log = EmailLog::first();
+
+        $response = $this->get(route('email-log.show', ['id' => $log->id]))->assertOk();
+
+        $response->assertSee('&lt;img src=&quot;data:image/png;base64,' . base64_encode($png) . '&quot;&gt;', false);
+        $response->assertDontSee('cid:', false);
+    }
+
     public function test_a_plain_text_body_is_shown_as_text_with_its_line_breaks()
     {
         Mail::raw("Line one\nLine two <name>", function ($message) {

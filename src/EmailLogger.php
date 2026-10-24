@@ -45,9 +45,13 @@ class EmailLogger
             $attachments[] = $attachmentPath;
 
             //remember which stored file an inline image is, so the email can be shown with its images;
-            //Laravel refers to inline files in the body by their name ("cid:<name>")
-            if ($this->isInline($part) && $originalName !== null) {
-                $inlineAttachments[$originalName] = $attachmentPath;
+            //the body refers to it by its Content-ID ("cid:<id>", from Laravel 12.40) or by its name
+            //("cid:<name>", older Laravel versions and HTML written by hand), so remember both
+            if ($this->isInline($part)) {
+                if ($originalName !== null) {
+                    $inlineAttachments[$originalName] = $attachmentPath;
+                }
+                $inlineAttachments[$part->getContentId()] = $attachmentPath;
             }
         }
 
