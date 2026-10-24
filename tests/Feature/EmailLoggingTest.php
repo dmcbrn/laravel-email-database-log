@@ -203,6 +203,35 @@ class EmailLoggingTest extends TestCase
         $this->assertSame($log->messageId . '/logo.png', $log->attachments);
     }
 
+    public function test_it_records_whether_the_body_is_plain_text_or_html()
+    {
+        $addresses = function ($message) {
+            $message->from('noreply@example.com')
+                ->to('jane@example.com')
+                ->subject('Body type');
+        };
+
+        Mail::raw('Hello there', $addresses);
+        Mail::html('<p>Hello there</p>', $addresses);
+        Mail::send(['html' => new HtmlString('<p>HTML version</p>'), 'text' => new HtmlString('Text version')], [], $addresses);
+
+        // The stored body is the HTML version whenever there is one, so it is "text/html" then.
+        $this->assertSame(
+            ['text/plain', 'text/html', 'text/html'],
+            EmailLog::orderBy('id')->pluck('body_content_type')->all()
+        );
+    }
+
+    public function test_emails_are_still_logged_when_the_body_type_migration_has_not_run()
+    {
+        // As in an app that installed the new version without running "php artisan migrate".
+        Schema::table('email_log', function ($table) {
+            $table->dropColumn('body_content_type');
+        });
+
+        $this->assertSame('Hello there', $this->sendEmail()->body);
+    }
+
     public function test_attachments_with_the_same_name_are_all_kept()
     {
         Mail::raw('Hello there', function ($message) {

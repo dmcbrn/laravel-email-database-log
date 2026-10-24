@@ -51,13 +51,17 @@ class EmailLogger
             'attachments' => empty($attachments) ? null : implode(', ', $attachments),
             'messageId' => $messageId,
             'mail_driver' => $this->getMailDriver(),
-            'mail_driver' => $this->getMailDriver(),
         ];
 
-        //only if the migration adding this column has been run, so a missing migration
-        //can never stop emails from being logged (and sent)
-        if (!empty($inlineAttachments) && Schema::hasColumn('email_log', 'inline_attachments')) {
+        //columns added by later migrations are only filled once their migration has run,
+        //so a missing migration can never stop emails from being logged (and sent)
+        $columns = Schema::getColumnListing('email_log');
+        if (!empty($inlineAttachments) && in_array('inline_attachments', $columns, true)) {
             $fields['inline_attachments'] = $inlineAttachments;
+        }
+        if (in_array('body_content_type', $columns, true)) {
+            //"text/plain" or "text/html", so the body can be shown the right way
+            $fields['body_content_type'] = $message->getBodyContentType();
         }
 
         $emailLog = EmailLog::create($fields);
