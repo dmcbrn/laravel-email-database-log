@@ -15,7 +15,14 @@ For Laravel 9 - use 6.* versions. They require Laravel 9.52 or newer: Laravel 9 
 
 For Laravel 10 - use 7.* versions. They support every Laravel 10 version.
 
-Versions 7.* are tested on MySQL 5.7, PostgreSQL 11 and SQLite, and versions 6.* on MySQL 5.7, PostgreSQL 10 and SQLite. Versions 5.* are tested on MySQL and SQLite; they cannot be installed on PostgreSQL.
+For Laravel 11 - use 8.* versions. They support every Laravel 11 version.
+
+Tested databases:
+
+- 8.*: MySQL 5.7, PostgreSQL 10 and SQLite
+- 7.*: MySQL 5.7, PostgreSQL 11 and SQLite
+- 6.*: MySQL 5.7, PostgreSQL 10 and SQLite
+- 5.*: MySQL and SQLite; they cannot be installed on PostgreSQL
 
 Version 5.1 is using Filesystems which is a breaking change from 5.3. See below for upgrade information.
 
@@ -185,9 +192,9 @@ composer test
 
 To run the tests on MySQL or PostgreSQL instead, set `EMAIL_LOG_TEST_DB_CONNECTION` (`mysql` or `pgsql`), together with `EMAIL_LOG_TEST_DB_HOST`, `EMAIL_LOG_TEST_DB_PORT`, `EMAIL_LOG_TEST_DB_DATABASE`, `EMAIL_LOG_TEST_DB_USERNAME` and `EMAIL_LOG_TEST_DB_PASSWORD`. The tests empty that database, so use one created only for them.
 
-GitHub Actions runs the tests on every push: on PHP 8.1, 8.2 and 8.3 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 11.
+GitHub Actions runs the tests on every push: on PHP 8.2, 8.3 and 8.4 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 10.
 
-Laravel 10 is end-of-life, and recent Composer versions refuse to install packages with known security advisories. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
+Laravel 11 is end-of-life, and recent Composer versions refuse to install packages with known security advisories. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
 
 ```bash
 composer update
@@ -195,6 +202,15 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 7.0.0 to 8.0.0 - LARAVEL 11
+
+Version 8.0 supports Laravel 11. Laravel 10 apps stay on 7.*, and Composer will not install 8.* there. When upgrading:
+
+- **Requirements:** Laravel 11 and PHP 8.2 or newer.
+- **`doctrine/dbal` is no longer required.** Laravel 11 changes database columns without it. Composer removes it automatically, unless your app requires it in its own `composer.json`.
+- **No new migrations and no code changes.**
+- If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 6.0.0 to 7.0.0 - LARAVEL 10
 
