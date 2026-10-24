@@ -4,7 +4,14 @@ on:
   push:
   pull_request:
 
+env:
+  # Laravel 9 is end-of-life, and recent Composer versions refuse packages with known
+  # security advisories. These are test runs, not a real app.
+  COMPOSER_NO_BLOCKING: 1
+  COMPOSER_NO_SECURITY_BLOCKING: 1
+
 jobs:
+  # In-memory SQLite: every supported PHP version, with the oldest and newest dependency versions.
   tests:
     runs-on: ubuntu-latest
 
@@ -15,12 +22,6 @@ jobs:
         dependencies: ['lowest', 'highest']
 
     name: PHP ${{ matrix.php }} / ${{ matrix.dependencies }} dependencies
-
-    env:
-      # Laravel 9 is end-of-life, and recent Composer versions refuse packages with known
-      # security advisories. These are test runs, not a real app.
-      COMPOSER_NO_BLOCKING: 1
-      COMPOSER_NO_SECURITY_BLOCKING: 1
 
     steps:
       - uses: actions/checkout@v6
@@ -41,3 +42,78 @@ jobs:
 
       - name: Run tests
         run: vendor/bin/phpunit
+
+  # MySQL: the oldest version Laravel 9 supports.
+  mysql:
+    runs-on: ubuntu-latest
+    name: MySQL 5.7 / PHP 8.2
+
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: email_log_tests
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=5s --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, fileinfo, dom, curl, pdo_mysql
+          coverage: none
+
+      - name: Install the newest allowed versions
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run tests
+        run: vendor/bin/phpunit
+        env:
+          EMAIL_LOG_TEST_DB_CONNECTION: mysql
+          EMAIL_LOG_TEST_DB_HOST: 127.0.0.1
+          EMAIL_LOG_TEST_DB_PORT: 3306
+          EMAIL_LOG_TEST_DB_DATABASE: email_log_tests
+          EMAIL_LOG_TEST_DB_USERNAME: root
+          EMAIL_LOG_TEST_DB_PASSWORD: password
+
+  # PostgreSQL: the oldest version Laravel 9 supports.
+  pgsql:
+    runs-on: ubuntu-latest
+    name: PostgreSQL 10 / PHP 8.2
+
+    services:
+      postgres:
+        image: postgres:10
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: email_log_tests
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, fileinfo, dom, curl, pdo_pgsql
+          coverage: none
+
+      - name: Install the newest allowed versions
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run tests
+        run: vendor/bin/phpunit
+        env:
+          EMAIL_LOG_TEST_DB_CONNECTION: pgsql
+          EMAIL_LOG_TEST_DB_HOST: 127.0.0.1
+          EMAIL_LOG_TEST_DB_PORT: 5432
+          EMAIL_LOG_TEST_DB_DATABASE: email_log_tests
+          EMAIL_LOG_TEST_DB_USERNAME: postgres
+          EMAIL_LOG_TEST_DB_PASSWORD: password
