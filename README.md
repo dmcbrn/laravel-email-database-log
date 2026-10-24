@@ -17,8 +17,11 @@ For Laravel 10 - use 7.* versions. They support every Laravel 10 version.
 
 For Laravel 11 - use 8.* versions. They support every Laravel 11 version.
 
+For Laravel 12 - use 9.* versions. They support every Laravel 12 version.
+
 Tested databases:
 
+- 9.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 8.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 7.*: MySQL 5.7, PostgreSQL 11 and SQLite
 - 6.*: MySQL 5.7, PostgreSQL 10 and SQLite
@@ -192,9 +195,9 @@ composer test
 
 To run the tests on MySQL or PostgreSQL instead, set `EMAIL_LOG_TEST_DB_CONNECTION` (`mysql` or `pgsql`), together with `EMAIL_LOG_TEST_DB_HOST`, `EMAIL_LOG_TEST_DB_PORT`, `EMAIL_LOG_TEST_DB_DATABASE`, `EMAIL_LOG_TEST_DB_USERNAME` and `EMAIL_LOG_TEST_DB_PASSWORD`. The tests empty that database, so use one created only for them.
 
-GitHub Actions runs the tests on every push: on PHP 8.2, 8.3 and 8.4 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 10.
+GitHub Actions runs the tests on every push: on PHP 8.2, 8.3, 8.4 and 8.5 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 10.
 
-Laravel 11 is end-of-life, and recent Composer versions refuse to install packages with known security advisories. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
+Recent Composer versions refuse to install package versions with known security advisories, which the oldest allowed Laravel 12 versions have. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
 
 ```bash
 composer update
@@ -202,6 +205,15 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 8.0.0 to 9.0.0 - LARAVEL 12
+
+Version 9.0 supports Laravel 12. Laravel 11 apps stay on 8.*, and Composer will not install 9.* there. When upgrading:
+
+- **Requirements:** Laravel 12 and PHP 8.2 or newer.
+- **No new migrations.**
+- **Inline images on Laravel 12.40 and newer:** from Laravel 12.40, `embedData()` and `embed()` refer to inline images by their Content-ID instead of their file name. The package now remembers each inline image under both, so the email's page shows its images on every Laravel 12 version.
+- If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 7.0.0 to 8.0.0 - LARAVEL 11
 
