@@ -36,8 +36,11 @@ class EmailLogController extends Controller {
         //get email
         $email = $this->getEmail($id, false);
 
-        //the body with its inline images embedded, for the sandboxed frame on the page
-        $body = $this->bodyWithInlineImages($email);
+        //the body for the sandboxed frame on the page: plain text escaped with its line breaks,
+        //HTML with its inline images embedded
+        $body = $email->body_content_type === 'text/plain'
+            ? $this->plainTextBody($email)
+            : $this->bodyWithInlineImages($email);
 
         //return
         return view('email-logger::show', compact('email', 'body'));
@@ -117,12 +120,21 @@ class EmailLogController extends Controller {
         return $body;
     }
 
+    private function plainTextBody(EmailLog $email)
+    {
+        //escaped, so text like "<name>" is shown as it is; pre-wrap keeps the line breaks and still
+        //wraps long lines, break-word also breaks long words such as URLs
+        return '<pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">'
+            . e($email->body)
+            . '</pre>';
+    }
+
     public function createEvent(Request $request)
     {
-    	$event = EventFactory::create('mailgun');
+        $event = EventFactory::create('mailgun');
 
-    	//check if event is valid
-    	if(!$event)
+        //check if event is valid
+        if(!$event)
             return response('Error: Unsupported Service', 400)
                 ->header('Content-Type', 'text/plain');
 
@@ -134,7 +146,7 @@ class EmailLogController extends Controller {
         //save event
         return $event->saveEvent($request);
     }
-    
+
     public function deleteOldEmails(Request $request)
     {
         //delete old emails
@@ -144,7 +156,7 @@ class EmailLogController extends Controller {
         return redirect(route('email-log'))
             ->with('status', $message);
     }
-    
+
     public function deleteOldEmailsApi(Request $request)
     {
         //delete old emails
@@ -171,7 +183,7 @@ class EmailLogController extends Controller {
                 //update each attachment's value depending if file can be found on disk
                 $fileName = basename($attachment);
                 if(Storage::disk(config('email_log.disk'))->exists($attachment)) {
-                    $route = $isApi 
+                    $route = $isApi
                         ? 'api.email-log.fetch-attachment'
                         : 'email-log.fetch-attachment';
                     $formattedAttachment = [
@@ -211,10 +223,10 @@ class EmailLogController extends Controller {
         $filterEmail = $request->filterEmail;
         $filterSubject = $request->filterSubject;
         $emails = EmailLog::with([
-                'events' => function($q) {
-                    $q->select('messageId','created_at','event');
-                }
-            ])
+            'events' => function($q) {
+                $q->select('messageId','created_at','event');
+            }
+        ])
             ->select('id','messageId','date','from','to','subject')
             ->when($filterEmail, function($q) use($filterEmail) {
                 return $q->where('to','like','%'.$filterEmail.'%');
@@ -247,7 +259,7 @@ class EmailLogController extends Controller {
             Storage::disk(config('email_log.disk'))
                 ->deleteDirectory($email->messageId);
         }
-        
+
         //delete emails
         $numberOfDeletedEmails = EmailLog::destroy($emails->pluck('id'));
 
