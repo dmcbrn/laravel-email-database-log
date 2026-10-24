@@ -11,6 +11,10 @@ For Laravel 7 - use 4.* versions
 
 For Laravel 8 - use 5.* versions
 
+For Laravel 9 - use 6.* versions. They require Laravel 9.52 or newer: Laravel 9 is end-of-life, 9.52 is its final release line, and updating within Laravel 9 is a routine, backwards-compatible update.
+
+Version 6.* is tested on MySQL 5.7, PostgreSQL 10 and SQLite. Versions 5.* are tested on MySQL and SQLite; they cannot be installed on PostgreSQL.
+
 Version 5.1 is using Filesystems which is a breaking change from 5.3. See below for upgrade information.
 
 # Installation
@@ -170,7 +174,18 @@ If your site is behind Cloudflare, make sure Cloudflare lets Mailgun's webhook r
 
 ## Running the tests
 
-The package has a test suite that boots a throw-away Laravel app with [Orchestra Testbench](https://github.com/orchestral/testbench), using an in-memory SQLite database. Nothing is sent and nothing is left behind.
+The package has a test suite that boots a throw-away Laravel app with [Orchestra Testbench](https://github.com/orchestral/testbench). By default it uses an in-memory SQLite database, so nothing is sent and nothing is left behind.
+
+```bash
+composer update
+composer test
+```
+
+To run the tests on MySQL or PostgreSQL instead, set `EMAIL_LOG_TEST_DB_CONNECTION` (`mysql` or `pgsql`), together with `EMAIL_LOG_TEST_DB_HOST`, `EMAIL_LOG_TEST_DB_PORT`, `EMAIL_LOG_TEST_DB_DATABASE`, `EMAIL_LOG_TEST_DB_USERNAME` and `EMAIL_LOG_TEST_DB_PASSWORD`. The tests empty that database, so use one created only for them.
+
+GitHub Actions runs the tests on every push: on PHP 8.0, 8.1 and 8.2 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 10.
+
+Laravel 9 is end-of-life, and recent Composer versions refuse to install packages with known security advisories. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
 
 ```bash
 composer update
@@ -178,6 +193,27 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 5.6.0 to 6.0.0 - LARAVEL 9, POSTGRESQL, NEW MIGRATION
+
+Version 6.0 supports Laravel 9. Laravel 8 apps stay on 5.*, and Composer will not install 6.* there. When upgrading:
+
+- **Requirements:** Laravel 9.52 or newer and PHP 8.0.2 or newer.
+- **Laravel 9 sends emails with Symfony Mailer** instead of SwiftMailer. The logger was rewritten for it; what it logs stays the same.
+- **Run the new migration:** `php artisan migrate`. On MySQL and MariaDB it removes the foreign key from `email_log_events.messageId` (the index stays). On other databases it does nothing.
+- **Deleting emails:** an email's events are now deleted together with the email on every database, whenever it is deleted through the model: `$email->delete()`, `EmailLog::destroy()` and the "delete old emails" page and API. Bulk deletes such as `EmailLog::where(...)->delete()` or raw SQL do not fire model events, so on MySQL they no longer delete the events. To remove leftover events afterwards: `EmailLogEvent::whereDoesntHave('email')->delete();` (this also removes events kept for unknown emails, see below).
+- **`EMAIL_LOG_MAILGUN_FILTER_UNKNOWN_EMAILS=false` now works on MySQL.** Saving events for emails that are not in the log failed there because of the foreign key.
+- **`mail_driver`** now records the transport of the mailer that actually sent the email (for example with `Mail::mailer('ses')`), not always the default mailer.
+- **PostgreSQL** is supported. The migrations could not run there before.
+- If you use queues, restart your queue workers after upgrading.
+
+## Upgrade from 5.5.0 to 5.6.0 - PLAIN-TEXT EMAILS, NEW MIGRATION
+
+The email detail page now shows plain-text emails with their line breaks, and shows text like `<name>` as written instead of treating it as HTML. When upgrading:
+
+- **Run the new migration:** `php artisan migrate` adds a `body_content_type` column (`text/plain` or `text/html`) to the `email_log` table. Until it has run, emails are logged and shown as before. Emails logged before the upgrade are shown as before.
+- **API:** the single-email response now includes `body_content_type`, so your own code can tell plain-text bodies from HTML ones.
+- If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 5.4.0 to 5.5.0 - SECURITY FIXES, INLINE IMAGES, NEW MIGRATION
 
