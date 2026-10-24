@@ -170,6 +170,19 @@ class MailgunWebhookTest extends TestCase
         $this->assertSame(0, EmailLogEvent::count());
     }
 
+    public function test_an_event_for_an_unknown_email_is_saved_when_filtering_is_off()
+    {
+        // EMAIL_LOG_MAILGUN_FILTER_UNKNOWN_EMAILS=false: keep events for emails that are not in the log.
+        config(['email_log.mailgun.filter_unknown_emails' => false]);
+        $unknownId = str_repeat('a', 32);
+
+        $response = $this->postJson(route('email-log.webhooks'), $this->webhookPayload($unknownId, 'delivered'));
+
+        $response->assertOk();
+        $this->assertSame('Success', $response->getContent());
+        $this->assertSame(1, EmailLogEvent::where('messageId', $unknownId)->count());
+    }
+
     public function test_the_webhook_signing_key_setting_takes_precedence_over_mailgun_secret()
     {
         // Laravel's own Mailgun mail transport reads its API key from MAILGUN_SECRET,
