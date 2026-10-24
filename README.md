@@ -19,8 +19,11 @@ For Laravel 11 - use 8.* versions. They support every Laravel 11 version.
 
 For Laravel 12 - use 9.* versions. They support every Laravel 12 version.
 
+For Laravel 13 - use 10.* versions. They support every Laravel 13 version.
+
 Tested databases:
 
+- 10.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 9.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 8.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 7.*: MySQL 5.7, PostgreSQL 11 and SQLite
@@ -195,9 +198,9 @@ composer test
 
 To run the tests on MySQL or PostgreSQL instead, set `EMAIL_LOG_TEST_DB_CONNECTION` (`mysql` or `pgsql`), together with `EMAIL_LOG_TEST_DB_HOST`, `EMAIL_LOG_TEST_DB_PORT`, `EMAIL_LOG_TEST_DB_DATABASE`, `EMAIL_LOG_TEST_DB_USERNAME` and `EMAIL_LOG_TEST_DB_PASSWORD`. The tests empty that database, so use one created only for them.
 
-GitHub Actions runs the tests on every push: on PHP 8.2, 8.3, 8.4 and 8.5 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 10.
+GitHub Actions runs the tests on every push: on PHP 8.3, 8.4 and 8.5 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 10.
 
-Recent Composer versions refuse to install package versions with known security advisories, which the oldest allowed Laravel 12 versions have. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
+Recent Composer versions refuse to install package versions with known security advisories, which the oldest allowed Laravel 13 versions have. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
 
 ```bash
 composer update
@@ -205,6 +208,14 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 9.0.0 to 10.0.0 - LARAVEL 13
+
+Version 10.0 supports Laravel 13. Laravel 12 apps stay on 9.*, and Composer will not install 10.* there. When upgrading:
+
+- **Requirements:** Laravel 13 and PHP 8.3 or newer.
+- **No new migrations and no code changes.** The package works with both Symfony Mailer 7.4 and 8, which Laravel 13 allows.
+- If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 8.0.0 to 9.0.0 - LARAVEL 12
 
