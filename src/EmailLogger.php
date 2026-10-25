@@ -123,6 +123,9 @@ class EmailLogger
             $name = substr($name, $lastSlash + 1);
         }
 
+        //attachment paths are stored as one text separated by ", ", so a name must not contain it
+        $name = preg_replace('/,\s+/', ',', $name);
+
         if ($name === '' || $name === '.' || $name === '..') {
             $name = 'attachment-' . $position;
         }

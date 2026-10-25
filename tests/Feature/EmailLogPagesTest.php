@@ -203,6 +203,24 @@ class EmailLogPagesTest extends TestCase
         $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 0]))->assertNotFound();
     }
 
+    public function test_an_attachment_with_a_comma_in_its_name_can_be_downloaded()
+    {
+        $log = $this->sendEmail('Comma in a name', 'jane@example.com', [
+            'Invoice, March.pdf' => 'invoice contents',
+            'notes.txt' => 'notes contents',
+        ]);
+
+        // Attachment paths are stored as one text, separated by ", ", so a name can't contain ", ".
+        $this->assertSame($log->messageId . '/Invoice,March.pdf, ' . $log->messageId . '/notes.txt', $log->fresh()->attachments);
+
+        $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 0]))
+            ->assertOk()
+            ->assertSee('invoice contents', false);
+        $this->get(route('email-log.fetch-attachment', ['id' => $log->id, 'attachment' => 1]))
+            ->assertOk()
+            ->assertSee('notes contents', false);
+    }
+
     public function test_attachments_that_could_run_scripts_are_downloaded_not_opened()
     {
         // HTML and SVG files can contain scripts, which would run on this site if opened in the browser.
