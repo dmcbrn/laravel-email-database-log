@@ -72,6 +72,12 @@ abstract class TestCase extends Orchestra
 
         $config->set('email_log.disk', 'email_log_attachments');
         $config->set('email_log.mailgun.secret', 'test-secret');
+
+        // The pages and the API are only reachable with an access middleware configured (an app
+        // would use for example "auth"). "web" and "api" add no protection, because the routes
+        // already use them, so the tests behave like an app that chose to leave the log open.
+        $config->set('email_log.access_middleware', 'web');
+        $config->set('email_log.access_middleware_api', 'api');
     }
 
     /**

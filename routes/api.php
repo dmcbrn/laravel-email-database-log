@@ -1,11 +1,13 @@
 <?php
-$accessMiddlewares = config('email_log.access_middleware_api', null) 
-    ? explode(',' , config('email_log.access_middleware_api'))
-    : [];
+//the app's own access middlewares (e.g. "auth:sanctum"); without them the API answers 404
+$accessMiddlewares = array_values(array_filter(array_map('trim', explode(',', (string) config('email_log.access_middleware_api')))));
 
 Route::group([
     'prefix' => 'api/' . config('email_log.routes_prefix_api', ''),
-    'middleware' => array_merge(['api'], $accessMiddlewares),
+    'middleware' => array_merge(
+        ['api', 'Dmcbrn\LaravelEmailDatabaseLog\Http\Middleware\RequireAccessMiddleware:access_middleware_api'],
+        $accessMiddlewares
+    ),
 ], function(){
     Route::get(
         '/email-log',

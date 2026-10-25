@@ -1,11 +1,13 @@
 <?php
-$accessMiddlewares = config('email_log.access_middleware', null) 
-    ? explode(',' , config('email_log.access_middleware'))
-    : [];
+//the app's own access middlewares (e.g. "auth,admin"); without them the pages answer 404
+$accessMiddlewares = array_values(array_filter(array_map('trim', explode(',', (string) config('email_log.access_middleware')))));
 
 Route::group([
     'prefix' => config('email_log.routes_prefix', ''),
-    'middleware' => array_merge(['web'], $accessMiddlewares),
+    'middleware' => array_merge(
+        ['web', 'Dmcbrn\LaravelEmailDatabaseLog\Http\Middleware\RequireAccessMiddleware:access_middleware'],
+        $accessMiddlewares
+    ),
 ], function(){
     Route::get(
         '/email-log',
