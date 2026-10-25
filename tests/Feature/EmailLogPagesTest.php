@@ -332,6 +332,26 @@ class EmailLogPagesTest extends TestCase
         $this->assertNotNull(EmailLog::find($new->id));
     }
 
+    public function test_old_emails_without_a_message_id_can_be_deleted()
+    {
+        $disk = Storage::disk('email_log_attachments');
+        $disk->put('unrelated.txt', 'another file on the same disk');
+
+        // Emails logged before the messageId column existed (2018) have no message ID. An empty
+        // one would make their attachment folder the disk's root folder.
+        EmailLog::create(['date' => '2017-01-01 10:00:00', 'subject' => 'No message ID', 'body' => 'Old body', 'messageId' => null]);
+        EmailLog::create(['date' => '2017-01-01 10:00:00', 'subject' => 'Empty message ID', 'body' => 'Old body', 'messageId' => '']);
+        $old = $this->sendEmail('Old email', 'jane@example.com', ['old.txt' => 'old file']);
+        EmailLog::where('id', $old->id)->update(['date' => '2020-01-01 10:00:00']);
+
+        $this->post(route('email-log.delete-old'), ['date' => '2021-01-01']);
+
+        $this->assertStringStartsWith('Deleted 3 emails', session('status'));
+        $this->assertSame(0, EmailLog::count());
+        $disk->assertMissing($old->messageId . '/old.txt');
+        $disk->assertExists('unrelated.txt');
+    }
+
     public function test_deleting_old_emails_includes_the_selected_date()
     {
         $dayBefore = $this->sendEmail('Day before');
