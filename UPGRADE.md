@@ -2,6 +2,10 @@
 
 Upgrade notes for every release, newest first. Which version to use for which Laravel version is listed in the [README](README.md).
 
+## Upgrade from 10.0.1 to 10.0.2 - BUG FIX
+
+Attachments whose name contains a comma followed by a space (such as "Invoice, March.pdf") were shown as "file not found" on the email's page, and the download links of the attachments after them pointed to the wrong files. Such names are now stored without the spaces after the comma ("Invoice,March.pdf"). Emails logged before this fix keep their names. No migrations; nothing to do when upgrading.
+
 ## Upgrade from 10.0.0 to 10.0.1 - BUG FIX
 
 "Delete old emails" (on the page and in the API) failed with an error when emails logged before 2018, which have no message ID, were among the emails to delete. They are now deleted like the others. No migrations; nothing to do when upgrading.
