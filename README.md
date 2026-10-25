@@ -202,13 +202,6 @@ GitHub Actions runs the tests on every push: on PHP 8.3, 8.4 and 8.5 with the ol
 
 Recent Composer versions refuse to install package versions with known security advisories, which the oldest allowed Laravel 13 versions have. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
 
-```bash
-composer update
-composer test
-```
-
-Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
-
 ## Upgrade from 9.0.0 to 10.0.0 - LARAVEL 13
 
 Version 10.0 supports Laravel 13. Laravel 12 apps stay on 9.*, and Composer will not install 10.* there. When upgrading:
