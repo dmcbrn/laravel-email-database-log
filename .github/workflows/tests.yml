@@ -3,6 +3,12 @@ name: tests
 on:
   push:
   pull_request:
+  # Every Monday at 04:17 UTC, so a new Laravel release that breaks the package is noticed
+  # even when nobody pushes. GitHub pauses this after 60 days without activity in the repository.
+  schedule:
+    - cron: '37 4 * * 1'
+  # A "Run workflow" button in the Actions tab, to run the tests by hand.
+  workflow_dispatch:
 
 env:
   # Recent Composer versions refuse package versions with known security advisories, which
