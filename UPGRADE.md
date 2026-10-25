@@ -2,6 +2,20 @@
 
 Upgrade notes for every release, newest first. Which version to use for which Laravel version is listed in the [README](README.md).
 
+## Upgrade from 10.0.2 to 10.1.0 - EMAIL LOG PROTECTED BY DEFAULT, BREAKING CHANGE
+
+The email log's pages and API are now only reachable once an access middleware is set. Until then they answer "404 Not Found", in every environment, `local` included. Before, they were open to anyone when no middleware was set: anyone could read the logged emails, including password reset links, and delete the log through the API.
+
+When upgrading:
+
+- **Set the access middleware** in your `.env` file: `EMAIL_LOG_ACCESS_MIDDLEWARE` for the pages and `EMAIL_LOG_ACCESS_MIDDLEWARE_API` for the API, for example `EMAIL_LOG_ACCESS_MIDDLEWARE=auth` (see "Step 4: Protect the email log" in the [README](README.md#step-4-protect-the-email-log-required)). If you already set them, nothing changes.
+- **If the log is protected in another way**, for example by your web server, set `EMAIL_LOG_ACCESS_MIDDLEWARE=web` and `EMAIL_LOG_ACCESS_MIDDLEWARE_API=api` to keep it reachable as before.
+- **Your app's tests** that open the log need the setting as well, for example in `phpunit.xml`.
+- **If you cache your config** (`php artisan config:cache`), run it again after changing `.env`.
+- Middleware names may now have spaces after the commas (`auth, admin`).
+- The Mailgun webhook is unchanged. No migrations.
+- If you use queues, restart your queue workers after upgrading.
+
 ## Upgrade from 10.0.1 to 10.0.2 - BUG FIX
 
 Attachments whose name contains a comma followed by a space (such as "Invoice, March.pdf") were shown as "file not found" on the email's page, and the download links of the attachments after them pointed to the wrong files. Such names are now stored without the spaces after the comma ("Invoice,March.pdf"). Emails logged before this fix keep their names. No migrations; nothing to do when upgrading.

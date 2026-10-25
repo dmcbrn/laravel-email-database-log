@@ -30,6 +30,8 @@ Tested databases:
 - 6.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 5.*: MySQL and SQLite; they cannot be installed on PostgreSQL
 
+**Security note for versions before 10.1.0** (all versions for Laravel 12 and older): they leave the email log open when `EMAIL_LOG_ACCESS_MIDDLEWARE` and `EMAIL_LOG_ACCESS_MIDDLEWARE_API` are not set. Anyone can then read every logged email, including password reset links, and delete the log through the API. If you use one of those versions, set both, as described in [Step 4](#step-4-protect-the-email-log-required).
+
 # Installation
 
 ## Step 1: Composer
@@ -63,7 +65,29 @@ Now, run this in terminal:
 php artisan migrate
 ```
 
-## Step 4: Config (optional)
+## Step 4: Protect the email log (required)
+
+The email log shows every email your app sends, including password reset links, so it is only reachable once you protect it. Until then, its pages and its API answer "404 Not Found", in every environment.
+
+Set the middleware that protects the pages in your `.env` file, for example:
+
+```
+EMAIL_LOG_ACCESS_MIDDLEWARE=auth
+```
+
+`auth` lets every logged-in user in. To allow only some users, add your own middleware, separated by a comma: `auth,admin`.
+
+The API has its own setting, and stays unreachable until it is set, for example with [Laravel Sanctum](https://laravel.com/docs/sanctum):
+
+```
+EMAIL_LOG_ACCESS_MIDDLEWARE_API=auth:sanctum
+```
+
+If the log is already protected in another way, for example by your web server, or if you deliberately want it open, for example on your own computer, set `EMAIL_LOG_ACCESS_MIDDLEWARE=web` and `EMAIL_LOG_ACCESS_MIDDLEWARE_API=api`. These add no protection: anyone who can reach the URLs can then read the log and delete it.
+
+The Mailgun webhook does not need these settings; it checks Mailgun's signature instead (see [MailGun webhooks](#mailgun-webhooks)).
+
+## Step 5: Config (optional)
 
 The defaults work without a config file. To change them in a config file, publish it by running this in terminal:
 
@@ -77,12 +101,12 @@ Config contains following parameters:
 //name of the disk where the attachments will be saved
 'disk' => env('EMAIL_LOG_DISK', env('EMAIL_LOG_ATTACHMENT_DISK', 'email_log_attachments')),
 
-//to prevent access to list of logged emails through WEB routes add a middlewares
-//multiple middlewares can be used (separate by comma)
+//required: the middlewares that protect the WEB routes (separate several by comma);
+//until they are set, the pages answer 404
 'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
 
-//to prevent access to list of logged emails through API routes add a middlewares
-//multiple middlewares can be used (separate by comma)
+//required for the API: the middlewares that protect the API routes (separate several by comma);
+//until they are set, the API answers 404
 'access_middleware_api' => env('EMAIL_LOG_ACCESS_MIDDLEWARE_API',null),
 
 //this parameter prefixes the routes for listing of logged emails using WEB routes
@@ -115,7 +139,7 @@ You can review sent emails using the following URI `/email-log`.
 
 You can prefix this URI by adding something like `EMAIL_LOG_ROUTES_PREFIX=prefix/` to your .env file.
 
-You can protect this URI using middleware by adding something like `EMAIL_LOG_ACCESS_MIDDLEWARE=auth,landlord` to your .env file.
+The pages are only reachable once `EMAIL_LOG_ACCESS_MIDDLEWARE` is set (see [Step 4](#step-4-protect-the-email-log-required)).
 
 ## MailGun webhooks
 
