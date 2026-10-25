@@ -196,6 +196,14 @@ composer test
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
 
+## Upgrade from 7.0.1 to 7.0.2 - BUG FIX
+
+Attachments whose name contains a comma followed by a space (such as "Invoice, March.pdf") were shown as "file not found" on the email's page, and the download links of the attachments after them pointed to the wrong files. Such names are now stored without the spaces after the comma ("Invoice,March.pdf"). Emails logged before this fix keep their names. No migrations; nothing to do when upgrading.
+
+## Upgrade from 7.0.0 to 7.0.1 - BUG FIX
+
+"Delete old emails" (on the page and in the API) failed with an error when emails logged before 2018, which have no message ID, were among the emails to delete. They are now deleted like the others. No migrations; nothing to do when upgrading.
+
 ## Upgrade from 6.0.0 to 7.0.0 - LARAVEL 10
 
 Version 7.0 supports Laravel 10. Laravel 9 apps stay on 6.*, and Composer will not install 7.* there. When upgrading:
@@ -208,10 +216,6 @@ composer update dmcbrn/laravel-email-database-log doctrine/dbal --with-dependenc
 
 - **No new migrations.** Dates are now converted with the model's `$casts` instead of the `$dates` property, which Laravel 10 removed. The pages and the API show dates exactly as before.
 - If you use queues, restart your queue workers after upgrading.
-
-## Upgrade from 7.0.0 to 7.0.1 - BUG FIX
-
-"Delete old emails" (on the page and in the API) failed with an error when emails logged before 2018, which have no message ID, were among the emails to delete. They are now deleted like the others. No migrations; nothing to do when upgrading.
 
 ## Upgrade from 5.6.0 to 6.0.0 - LARAVEL 9, POSTGRESQL, NEW MIGRATION
 
