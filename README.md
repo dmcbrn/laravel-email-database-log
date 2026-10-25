@@ -206,6 +206,10 @@ composer test
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
 
+## Upgrade from 9.0.0 to 9.0.1 - BUG FIX
+
+"Delete old emails" (on the page and in the API) failed with an error when emails logged before 2018, which have no message ID, were among the emails to delete. They are now deleted like the others. No migrations; nothing to do when upgrading.
+
 ## Upgrade from 8.0.0 to 9.0.0 - LARAVEL 12
 
 Version 9.0 supports Laravel 12. Laravel 11 apps stay on 8.*, and Composer will not install 9.* there. When upgrading:
