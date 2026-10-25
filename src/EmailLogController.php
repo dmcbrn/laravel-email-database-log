@@ -256,6 +256,11 @@ class EmailLogController extends Controller {
 
         //delete email attachments
         foreach ($emails as $email) {
+            //emails logged before the messageId column existed have no message ID and no attachment
+            //folder; deleting the folder "" would delete everything on the disk
+            if ((string) $email->messageId === '')
+                continue;
+
             Storage::disk(config('email_log.disk'))
                 ->deleteDirectory($email->messageId);
         }
