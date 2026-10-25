@@ -194,6 +194,14 @@ composer test
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
 
+## Upgrade from 6.0.1 to 6.0.2 - BUG FIX
+
+Attachments whose name contains a comma followed by a space (such as "Invoice, March.pdf") were shown as "file not found" on the email's page, and the download links of the attachments after them pointed to the wrong files. Such names are now stored without the spaces after the comma ("Invoice,March.pdf"). Emails logged before this fix keep their names. No migrations; nothing to do when upgrading.
+
+## Upgrade from 6.0.0 to 6.0.1 - BUG FIX
+
+"Delete old emails" (on the page and in the API) failed with an error when emails logged before 2018, which have no message ID, were among the emails to delete. They are now deleted like the others. No migrations; nothing to do when upgrading.
+
 ## Upgrade from 5.6.0 to 6.0.0 - LARAVEL 9, POSTGRESQL, NEW MIGRATION
 
 Version 6.0 supports Laravel 9. Laravel 8 apps stay on 5.*, and Composer will not install 6.* there. When upgrading:
@@ -206,10 +214,6 @@ Version 6.0 supports Laravel 9. Laravel 8 apps stay on 5.*, and Composer will no
 - **`mail_driver`** now records the transport of the mailer that actually sent the email (for example with `Mail::mailer('ses')`), not always the default mailer.
 - **PostgreSQL** is supported. The migrations could not run there before.
 - If you use queues, restart your queue workers after upgrading.
-
-## Upgrade from 6.0.0 to 6.0.1 - BUG FIX
-
-"Delete old emails" (on the page and in the API) failed with an error when emails logged before 2018, which have no message ID, were among the emails to delete. They are now deleted like the others. No migrations; nothing to do when upgrading.
 
 ## Upgrade from 5.5.0 to 5.6.0 - PLAIN-TEXT EMAILS, NEW MIGRATION
 
