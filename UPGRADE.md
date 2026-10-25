@@ -2,6 +2,10 @@
 
 Upgrade notes for every release, newest first. Which version to use for which Laravel version is listed in the [README](README.md).
 
+## Upgrade from 10.0.0 to 10.0.1 - BUG FIX
+
+"Delete old emails" (on the page and in the API) failed with an error when emails logged before 2018, which have no message ID, were among the emails to delete. They are now deleted like the others. No migrations; nothing to do when upgrading.
+
 ## Upgrade from 9.0.0 to 10.0.0 - LARAVEL 13
 
 Version 10.0 supports Laravel 13. Laravel 12 apps stay on 9.*, and Composer will not install 10.* there. When upgrading:
