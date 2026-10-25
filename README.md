@@ -1,6 +1,6 @@
 # Laravel Email Database Log
 
-A simple database logger for all outgoing emails sent by Laravel website.
+A simple database logger for all outgoing emails sent by a Laravel website.
 Forked from ShvetsGroup\LaravelEmailDatabaseLog.
 
 For Laravel 5.8 - use 2.* versions
@@ -30,8 +30,6 @@ Tested databases:
 - 6.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 5.*: MySQL and SQLite; they cannot be installed on PostgreSQL
 
-Version 5.1 is using Filesystems which is a breaking change from 5.3. See [UPGRADE.md](UPGRADE.md) for upgrade information.
-
 # Installation
 
 ## Step 1: Composer
@@ -42,16 +40,20 @@ Laravel Email Database Log can be installed via [composer](http://getcomposer.or
 composer require dmcbrn/laravel-email-database-log
 ```
 
-## Step 2: Configuration
+Laravel finds the package by itself (package discovery), so there is nothing to register.
 
-You can skip this step if your version of Laravel is 5.5 or above. Otherwise, you have to add the following to your config/app.php in the providers array:
+## Step 2: Attachment disk
+
+Attachments are saved on a filesystem disk. Add this disk to the `disks` array in your `config/filesystems.php` file:
 
 ```php
-'providers' => [
-    // ...
-    Dmcbrn\LaravelEmailDatabaseLog\LaravelEmailDatabaseLogServiceProvider::class,
+'email_log_attachments' => [
+    'driver' => 'local',
+    'root' => storage_path('app/email_log_attachments'),
 ],
 ```
+
+To use another disk, for example one on external storage, set `EMAIL_LOG_DISK` in your `.env` file (`EMAIL_LOG_ATTACHMENT_DISK`, which earlier versions read, still works), or publish the config file and change the `disk` value.
 
 ## Step 3: Migration
 
@@ -61,9 +63,9 @@ Now, run this in terminal:
 php artisan migrate
 ```
 
-## Step 4: Config
+## Step 4: Config (optional)
 
-To publish config file run this in terminal:
+The defaults work without a config file. To change them in a config file, publish it by running this in terminal:
 
 ```bash
 php artisan vendor:publish --provider="Dmcbrn\LaravelEmailDatabaseLog\LaravelEmailDatabaseLogServiceProvider"
@@ -92,7 +94,7 @@ Config contains following parameters:
 //custom route prefix for webhooks
 'routes_webhook_prefix' => env('EMAIL_LOG_ROUTES_WEBHOOK_PREFIX', env('EMAIL_LOG_ROUTES_PREFIX','')),
 
-//mailgun webhook signing key (falls back to MAILGUN_SECRET), whether to ommit events for emails which were not found,
+//mailgun webhook signing key (falls back to MAILGUN_SECRET), whether to omit events for emails which were not found,
 //and the maximum age of a webhook request in seconds (0 turns the check off)
 'mailgun' => [
     'secret' => env('EMAIL_LOG_MAILGUN_WEBHOOK_SIGNING_KEY', env('MAILGUN_SECRET', null)),
@@ -103,41 +105,11 @@ Config contains following parameters:
 
 # Usage
 
-After installation, any email sent by your website will be logged to `email_log` table in the site's database.
+After installation, any email sent by your website will be logged to the `email_log` table in the site's database, and its attachments saved on the attachment disk.
 
-Any attachments will be saved on the `email_log_attachments` disk. To use another disk, set `EMAIL_LOG_DISK` in your `.env` file (`EMAIL_LOG_ATTACHMENT_DISK`, which earlier versions read, still works), or publish the config file and change the `disk` value.
+If you want to process the logged email or save/format some additional data on your system, you can listen to the `Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailLogged` event with a [Laravel listener](https://laravel.com/docs/events#defining-listeners). From Laravel 11, listeners in your `app/Listeners` folder are registered automatically ([event discovery](https://laravel.com/docs/events#event-discovery)); in older versions, register the listener in your `EventServiceProvider`.
 
-You also need to add the following disk in the `config/filesystems.php` file:
-
-```
-'email_log_attachments' => [
-    'driver' => 'local',
-    'root' => storage_path('app/email_log_attachments'),
-],
-```
-
-If you want to process the logged email or save/format some additional data on your system you can hook up to the `Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailLogged` event via a Laravel listener:
-
-https://laravel.com/docs/5.5/events#defining-listeners
-
-Don't forget to register the event:
-
-https://laravel.com/docs/5.5/events#registering-events-and-listeners
-
-If you're using Laravel >=5.8.9 you can use `Event Discovery` instead:
-
-https://laravel.com/docs/5.8/events#registering-events-and-listeners 
-
-If using queues on your server you will need to restart the worker for the library to work:
-
-```
-Remember, queue workers are long-lived processes and store the booted application state in memory. 
-As a result, they will not notice changes in your code base after they have been started. 
-So, during your deployment process, be sure to restart your queue workers.
-
-
-https://laravel.com/docs/5.5/queues#running-the-queue-worker
-```
+If you use queues, restart your queue workers after installing or upgrading the package (`php artisan queue:restart`). They keep the old code in memory until they are restarted ([Laravel docs](https://laravel.com/docs/queues#queue-workers-and-deployment)).
 
 You can review sent emails using the following URI `/email-log`.
 
