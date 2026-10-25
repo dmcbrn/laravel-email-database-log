@@ -209,6 +209,10 @@ composer update dmcbrn/laravel-email-database-log doctrine/dbal --with-dependenc
 - **No new migrations.** Dates are now converted with the model's `$casts` instead of the `$dates` property, which Laravel 10 removed. The pages and the API show dates exactly as before.
 - If you use queues, restart your queue workers after upgrading.
 
+## Upgrade from 7.0.0 to 7.0.1 - BUG FIX
+
+"Delete old emails" (on the page and in the API) failed with an error when emails logged before 2018, which have no message ID, were among the emails to delete. They are now deleted like the others. No migrations; nothing to do when upgrading.
+
 ## Upgrade from 5.6.0 to 6.0.0 - LARAVEL 9, POSTGRESQL, NEW MIGRATION
 
 Version 6.0 supports Laravel 9. Laravel 8 apps stay on 5.*, and Composer will not install 6.* there. When upgrading:
