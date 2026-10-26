@@ -72,6 +72,11 @@ Config contains following parameters:
 //name of the disk where the attachments will be saved
 'disk' => env('EMAIL_LOG_DISK', env('EMAIL_LOG_ATTACHMENT_DISK', 'email_log_attachments')),
 
+//in KB: the most that is logged of an email's body and of its headers (longer values are cut off),
+//and the largest attachment that is stored (0 stores attachments of any size); see "Sizes and limits"
+'max_body_size' => (int) env('EMAIL_LOG_MAX_BODY_SIZE', 1024),
+'max_attachment_size' => (int) env('EMAIL_LOG_MAX_ATTACHMENT_SIZE', 10240),
+
 //to prevent access to list of logged emails through WEB routes add a middlewares
 //multiple middlewares can be used (separate by comma)
 'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
@@ -123,7 +128,7 @@ https://laravel.com/docs/5.5/events#registering-events-and-listeners
 
 If you're using Laravel >=5.8.9 you can use `Event Discovery` instead:
 
-https://laravel.com/docs/5.8/events#registering-events-and-listeners 
+https://laravel.com/docs/5.8/events#registering-events-and-listeners
 
 If using queues on your server you will need to restart the worker for the library to work:
 
@@ -141,6 +146,22 @@ You can review sent emails using the following URI `/email-log`.
 You can prefix this URI by adding something like `EMAIL_LOG_ROUTES_PREFIX=prefix/` to your .env file.
 
 You can protect this URI using middleware by adding something like `EMAIL_LOG_ACCESS_MIDDLEWARE=auth,landlord` to your .env file.
+
+## Sizes and limits
+
+Emails are always sent, whatever their size. The log keeps them within these limits:
+
+- **Body and headers:** up to `EMAIL_LOG_MAX_BODY_SIZE` KB each (default `1024`, which is 1 MB). Longer values are cut off and end with `…[truncated]`.
+- **From, To, CC, BCC and subject:** up to 64 KB each, cut off the same way.
+- **Attachments:** files larger than `EMAIL_LOG_MAX_ATTACHMENT_SIZE` KB (default `10240`, which is 10 MB) are not stored. The email's page lists them with their size and the limit at the time they were sent; the API returns them as `skipped_attachments`. `0` stores attachments of any size.
+
+Both settings are in KB. In `.env`, write the number itself, for example `EMAIL_LOG_MAX_BODY_SIZE=2048` for 2 MB. A calculation such as `2 * 1024` only works in the published config file, which is PHP; `.env` values are plain text.
+
+Keep `EMAIL_LOG_MAX_BODY_SIZE` well within what your database accepts in a single query. MySQL refuses queries larger than its `max_allowed_packet` setting (4 MB by default on MySQL 5.7, 64 MB on MySQL 8.0), so with a higher limit, large emails would fail to be logged.
+
+If logging an email fails anyway, for example because the database can't be reached, the email is still sent. It is not logged, and the error is reported through Laravel's error handling, so it appears in your log file or in an error tracker such as Sentry.
+
+Message-IDs created by Laravel always fit the log. If your app sets its own Message-IDs, with more than 32 characters before the `@`, those emails are sent but not logged, and the error is reported.
 
 ## MailGun webhooks
 
@@ -205,6 +226,16 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 9.0.2 to 9.1.0 - EMAILS OF ANY SIZE, ATTACHMENT LIMIT, NEW MIGRATION
+
+Large emails could stop an email from being sent: an HTML body over 64 KB on MySQL, or more than 255 characters of recipients or subject on MySQL and PostgreSQL. Saving the log entry failed, and that error stopped the sending. Now the email is always sent, and a logging error is reported through Laravel's error handling instead (your log file, or an error tracker such as Sentry). When upgrading:
+
+- **Run the new migration:** `php artisan migrate`. It enlarges the email log's columns, adds a `skipped_attachments` column, and drops the indexes on `to` and `subject` (the package's search can't use them). On a large MySQL table this can lock the table for a while, so run it outside busy hours.
+- **New limits** (see "Sizes and limits" above): bodies and headers over 1 MB are cut off (`EMAIL_LOG_MAX_BODY_SIZE`, in KB), and attachments over 10 MB are no longer stored (`EMAIL_LOG_MAX_ATTACHMENT_SIZE`, in KB; `0` stores any size). On PostgreSQL and SQLite, longer bodies were stored in full before.
+- **API:** the single-email response now includes `skipped_attachments`.
+- If you published the config file, the defaults apply without changes. To change the limits there, add the two settings shown above.
+- If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 9.0.1 to 9.0.2 - BUG FIX
 
@@ -364,7 +395,7 @@ to
 'disk' => env('EMAIL_LOG_DISK','email_log_attachments'),
 ```
 
-In `config/filesystems.php` add 
+In `config/filesystems.php` add
 
 
 ```
