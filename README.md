@@ -101,6 +101,11 @@ Config contains following parameters:
 //name of the disk where the attachments will be saved
 'disk' => env('EMAIL_LOG_DISK', env('EMAIL_LOG_ATTACHMENT_DISK', 'email_log_attachments')),
 
+//in KB: the most that is logged of an email's body and of its headers (longer values are cut off),
+//and the largest attachment that is stored (0 stores attachments of any size); see "Sizes and limits"
+'max_body_size' => (int) env('EMAIL_LOG_MAX_BODY_SIZE', 1024),
+'max_attachment_size' => (int) env('EMAIL_LOG_MAX_ATTACHMENT_SIZE', 10240),
+
 //required: the middlewares that protect the WEB routes (separate several by comma);
 //until they are set, the pages answer 404
 'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
@@ -140,6 +145,22 @@ You can review sent emails using the following URI `/email-log`.
 You can prefix this URI by adding something like `EMAIL_LOG_ROUTES_PREFIX=prefix/` to your .env file.
 
 The pages are only reachable once `EMAIL_LOG_ACCESS_MIDDLEWARE` is set (see [Step 4](#step-4-protect-the-email-log-required)).
+
+## Sizes and limits
+
+Emails are always sent, whatever their size. The log keeps them within these limits:
+
+- **Body and headers:** up to `EMAIL_LOG_MAX_BODY_SIZE` KB each (default `1024`, which is 1 MB). Longer values are cut off and end with `…[truncated]`.
+- **From, To, CC, BCC and subject:** up to 64 KB each, cut off the same way.
+- **Attachments:** files larger than `EMAIL_LOG_MAX_ATTACHMENT_SIZE` KB (default `10240`, which is 10 MB) are not stored. The email's page lists them with their size and the limit at the time they were sent; the API returns them as `skipped_attachments`. `0` stores attachments of any size.
+
+Both settings are in KB. In `.env`, write the number itself, for example `EMAIL_LOG_MAX_BODY_SIZE=2048` for 2 MB. A calculation such as `2 * 1024` only works in the published config file, which is PHP; `.env` values are plain text.
+
+Keep `EMAIL_LOG_MAX_BODY_SIZE` well within what your database accepts in a single query. MySQL refuses queries larger than its `max_allowed_packet` setting (4 MB by default on MySQL 5.7, 64 MB on MySQL 8.0), so with a higher limit, large emails would fail to be logged.
+
+If logging an email fails anyway, for example because the database can't be reached, the email is still sent. It is not logged, and the error is reported through Laravel's error handling, so it appears in your log file or in an error tracker such as Sentry.
+
+Message-IDs created by Laravel always fit the log. If your app sets its own Message-IDs, with more than 32 characters before the `@`, those emails are sent but not logged, and the error is reported.
 
 ## MailGun webhooks
 

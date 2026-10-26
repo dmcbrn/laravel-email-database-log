@@ -16,6 +16,16 @@ When upgrading:
 - The Mailgun webhook is unchanged. No migrations.
 - If you use queues, restart your queue workers after upgrading.
 
+## Upgrade from 10.1.0 to 10.2.0 - EMAILS OF ANY SIZE, ATTACHMENT LIMIT, NEW MIGRATION
+
+Large emails could stop an email from being sent: an HTML body over 64 KB on MySQL, or more than 255 characters of recipients or subject on MySQL and PostgreSQL. Saving the log entry failed, and that error stopped the sending. Now the email is always sent, and a logging error is reported through Laravel's error handling instead (your log file, or an error tracker such as Sentry). When upgrading:
+
+- **Run the new migration:** `php artisan migrate`. It enlarges the email log's columns, adds a `skipped_attachments` column, and drops the indexes on `to` and `subject` (the package's search can't use them). On a large MySQL table this can lock the table for a while, so run it outside busy hours.
+- **New limits** (see "Sizes and limits" in the [README](README.md#sizes-and-limits)): bodies and headers over 1 MB are cut off (`EMAIL_LOG_MAX_BODY_SIZE`, in KB), and attachments over 10 MB are no longer stored (`EMAIL_LOG_MAX_ATTACHMENT_SIZE`, in KB; `0` stores any size). On PostgreSQL and SQLite, longer bodies were stored in full before.
+- **API:** the single-email response now includes `skipped_attachments`.
+- If you published the config file, the defaults apply without changes. To change the limits there, add the two settings shown in the README.
+- If you use queues, restart your queue workers after upgrading.
+
 ## Upgrade from 10.0.1 to 10.0.2 - BUG FIX
 
 Attachments whose name contains a comma followed by a space (such as "Invoice, March.pdf") were shown as "file not found" on the email's page, and the download links of the attachments after them pointed to the wrong files. Such names are now stored without the spaces after the comma ("Invoice,March.pdf"). Emails logged before this fix keep their names. No migrations; nothing to do when upgrading.
