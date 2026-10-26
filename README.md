@@ -107,7 +107,7 @@ https://laravel.com/docs/5.5/events#registering-events-and-listeners
 
 If you're using Laravel >=5.8.9 you can use `Event Discovery` instead:
 
-https://laravel.com/docs/5.8/events#registering-events-and-listeners 
+https://laravel.com/docs/5.8/events#registering-events-and-listeners
 
 If using queues on your server you will need to restart the worker for the library to work:
 
@@ -125,6 +125,19 @@ You can review sent emails using the following URI `/email-log`.
 You can prefix this URI by adding something like `EMAIL_LOG_ROUTES_PREFIX=prefix/` to your .env file.
 
 You can protect this URI using middleware by adding something like `EMAIL_LOG_ACCESS_MIDDLEWARE=auth,landlord` to your .env file.
+
+## Sizes and limits
+
+Emails are always sent, whatever their size. Values that don't fit the email log's columns are cut off and end with `…[truncated]`:
+
+- **Body and headers:** up to 64 KB each.
+- **From, To, CC, BCC and subject:** up to 255 characters each.
+
+If logging an email fails anyway, for example because the database can't be reached, the email is still sent. It is not logged, and the error is reported through Laravel's error handling, so it appears in your log file or in an error tracker such as Sentry.
+
+Message-IDs created by Laravel always fit the log. If your app sets its own Message-IDs, with more than 32 characters before the `@`, those emails are sent but not logged, and the error is reported.
+
+Versions 6.1.0 and newer (for Laravel 9 and newer) have larger columns and a configurable limit for the body, and can skip large attachments. Their migration enlarges the columns, which can lock a large MySQL table for a while; see their upgrade notes.
 
 ## MailGun webhooks
 
@@ -178,6 +191,13 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 5.6.2 to 5.6.3 - BUG FIX
+
+Large emails could stop an email from being sent: on MySQL, an HTML body over 64 KB, or more than 255 characters of recipients or subject. Saving the log entry failed, and that error stopped the sending. Now values that don't fit are cut off (see "Sizes and limits" above), the email is always sent, and a logging error is reported through Laravel's error handling instead (your log file, or an error tracker such as Sentry). No migrations; nothing to do when upgrading.
+
+- **SQLite only:** SQLite ignores column sizes, so longer values were stored in full before. They are now cut off at the sizes above as well.
+- If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 5.6.1 to 5.6.2 - BUG FIX
 
@@ -293,7 +313,7 @@ to
 'disk' => env('EMAIL_LOG_DISK','email_log_attachments'),
 ```
 
-In `config/filesystems.php` add 
+In `config/filesystems.php` add
 
 
 ```
