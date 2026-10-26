@@ -2,6 +2,10 @@
 
 return [
     'disk' => env('EMAIL_LOG_DISK', env('EMAIL_LOG_ATTACHMENT_DISK', 'email_log_attachments')),
+    //in KB: the most that is logged of an email's body and of its headers (longer values are cut off),
+    //and the largest attachment that is stored (0 stores attachments of any size)
+    'max_body_size' => (int) env('EMAIL_LOG_MAX_BODY_SIZE', 1024),
+    'max_attachment_size' => (int) env('EMAIL_LOG_MAX_ATTACHMENT_SIZE', 10240),
     'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
     'access_middleware_api' => env('EMAIL_LOG_ACCESS_MIDDLEWARE_API',null),
     'routes_prefix' => env('EMAIL_LOG_ROUTES_PREFIX',''),

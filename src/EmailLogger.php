@@ -9,15 +9,42 @@ use Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailLogged;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Part\DataPart;
+use Throwable;
 
 class EmailLogger
 {
+    /**
+     * Added to a value that was cut off to fit its limit.
+     */
+    const TRUNCATED_MARKER = '…[truncated]';
+
+    /**
+     * The size of the address and subject columns: what a MySQL TEXT column holds, in bytes.
+     */
+    const TEXT_COLUMN_BYTES = 65535;
+
     /**
      * Handle the event.
      *
      * @param MessageSending $event
      */
     public function handle(MessageSending $event)
+    {
+        try {
+            $this->log($event);
+        } catch (Throwable $e) {
+            //logging must never stop an email from being sent: report the problem (to the app's log,
+            //or an error tracker such as Sentry) and let the email go out
+            report($e);
+        }
+    }
+
+    /**
+     * Log the email that is about to be sent.
+     *
+     * @param MessageSending $event
+     */
+    protected function log(MessageSending $event)
     {
         /** @var Email $message */
         $message = $event->message;
@@ -31,17 +58,36 @@ class EmailLogger
         }
         $messageId = strtok($headers->get('Message-ID')->getId(), '@');
 
+        //limits in bytes; the body limit can't be turned off (a value below 1 falls back to the default)
+        $maxBodyKb = (int) config('email_log.max_body_size', 1024);
+        $maxBodyBytes = ($maxBodyKb > 0 ? $maxBodyKb : 1024) * 1024;
+        $maxAttachmentBytes = max(0, (int) config('email_log.max_attachment_size', 10240)) * 1024;
+
         $attachments = [];
         $usedNames = [];
         $inlineAttachments = [];
+        $skippedAttachments = [];
         foreach ($message->getAttachments() as $part) {
             //attachments and inline (embedded) files
             $originalName = $this->attachmentName($part);
+            $contents = $part->getBody();
+
+            //files over the limit are not stored, only remembered with their size and the limit
+            //at this moment, so the email's page can say why the file is missing
+            if ($maxAttachmentBytes > 0 && strlen($contents) > $maxAttachmentBytes) {
+                $skippedAttachments[] = [
+                    'name' => $this->safeAttachmentName($originalName, count($attachments) + count($skippedAttachments) + 1),
+                    'size' => strlen($contents),
+                    'limit' => $maxAttachmentBytes,
+                ];
+                continue;
+            }
+
             $position = count($attachments) + 1;
             $name = $this->safeAttachmentName($originalName, $position);
             $name = $this->uniqueAttachmentName($name, $position, $usedNames);
             $attachmentPath = $messageId . '/' . $name;
-            Storage::disk(config('email_log.disk'))->put($attachmentPath, $part->getBody());
+            Storage::disk(config('email_log.disk'))->put($attachmentPath, $contents);
             $attachments[] = $attachmentPath;
 
             //remember which stored file an inline image is, so the email can be shown with its images;
@@ -53,13 +99,13 @@ class EmailLogger
 
         $fields = [
             'date' => date('Y-m-d H:i:s'),
-            'from' => $this->formatAddresses($message->getFrom()),
-            'to' => $this->formatAddresses($message->getTo()),
-            'cc' => $this->formatAddresses($message->getCc()),
-            'bcc' => $this->formatAddresses($message->getBcc()),
-            'subject' => (string) $message->getSubject(),
-            'body' => $this->getBody($message),
-            'headers' => $headers->toString(),
+            'from' => $this->truncate($this->formatAddresses($message->getFrom()), self::TEXT_COLUMN_BYTES),
+            'to' => $this->truncate($this->formatAddresses($message->getTo()), self::TEXT_COLUMN_BYTES),
+            'cc' => $this->truncate($this->formatAddresses($message->getCc()), self::TEXT_COLUMN_BYTES),
+            'bcc' => $this->truncate($this->formatAddresses($message->getBcc()), self::TEXT_COLUMN_BYTES),
+            'subject' => $this->truncate((string) $message->getSubject(), self::TEXT_COLUMN_BYTES),
+            'body' => $this->truncate($this->getBody($message), $maxBodyBytes),
+            'headers' => $this->truncate($headers->toString(), $maxBodyBytes),
             'attachments' => empty($attachments) ? null : implode(', ', $attachments),
             'messageId' => $messageId,
             'mail_driver' => $this->getMailDriver($event),
@@ -71,6 +117,9 @@ class EmailLogger
         if (!empty($inlineAttachments) && in_array('inline_attachments', $columns, true)) {
             $fields['inline_attachments'] = $inlineAttachments;
         }
+        if (!empty($skippedAttachments) && in_array('skipped_attachments', $columns, true)) {
+            $fields['skipped_attachments'] = $skippedAttachments;
+        }
         if (in_array('body_content_type', $columns, true)) {
             //"text/plain" or "text/html", so the body can be shown the right way; the stored body
             //is the HTML version whenever there is one
@@ -80,6 +129,22 @@ class EmailLogger
         $emailLog = EmailLog::create($fields);
 
         event(new EmailLogged($emailLog));
+    }
+
+    /**
+     * Cut a value off at a size in bytes, marker included, without splitting a UTF-8 character.
+     *
+     * @param  null|string  $value
+     * @param  int  $maxBytes
+     * @return null|string
+     */
+    protected function truncate($value, $maxBytes)
+    {
+        if ($value === null || strlen($value) <= $maxBytes) {
+            return $value;
+        }
+
+        return mb_strcut($value, 0, $maxBytes - strlen(self::TRUNCATED_MARKER), 'UTF-8') . self::TRUNCATED_MARKER;
     }
 
     /**
