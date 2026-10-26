@@ -4,11 +4,14 @@ namespace Dmcbrn\LaravelEmailDatabaseLog\Tests\Feature;
 
 use Dmcbrn\LaravelEmailDatabaseLog\EmailLog;
 use Dmcbrn\LaravelEmailDatabaseLog\Tests\TestCase;
-use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
+use Mockery;
 
 /**
  * Emails of any size are sent; the log keeps them within its size limits.
@@ -17,16 +20,23 @@ class SizesAndLimitsTest extends TestCase
 {
     public function test_an_error_while_logging_does_not_stop_the_email()
     {
-        Exceptions::fake();
+        // Records what is reported, instead of reporting it. (Not Exceptions::fake(), which older
+        // Laravel versions don't have, so this test runs unchanged on every branch.)
+        $handler = $this->spy(ExceptionHandler::class);
+        $sent = 0;
+        Event::listen(MessageSent::class, function () use (&$sent) {
+            $sent++;
+        });
+
         // A disk that does not exist makes storing the attachment fail.
         config(['email_log.disk' => 'missing-disk']);
 
         $this->sendEmail('Still sent', 'jane@example.com', ['file.txt' => 'contents']);
 
         // The email went out, nothing was logged, and the error was reported (e.g. to Sentry).
-        $this->assertCount(1, Mail::mailer('array')->getSymfonyTransport()->messages());
+        $this->assertSame(1, $sent);
         $this->assertSame(0, EmailLog::count());
-        Exceptions::assertReported(InvalidArgumentException::class);
+        $handler->shouldHaveReceived('report')->once()->with(Mockery::type(InvalidArgumentException::class));
     }
 
     public function test_a_large_html_body_is_logged_in_full()
@@ -43,7 +53,9 @@ class SizesAndLimitsTest extends TestCase
     public function test_many_recipients_and_a_long_subject_are_logged_in_full()
     {
         // About 1 KB of addresses in each field, and a 300 character subject: more than 255.
-        $recipients = array_map(fn ($i) => "recipient{$i}@example.com", range(1, 40));
+        $recipients = array_map(function ($i) {
+            return "recipient{$i}@example.com";
+        }, range(1, 40));
         $subject = str_repeat('x', 300);
         Mail::raw('Hello', function ($message) use ($recipients, $subject) {
             $message->from('noreply@example.com')
@@ -72,7 +84,9 @@ class SizesAndLimitsTest extends TestCase
     public function test_headers_over_the_limit_are_truncated()
     {
         config(['email_log.max_body_size' => 1]); // KB, the limit for the body and the headers
-        $recipients = array_map(fn ($i) => "recipient{$i}@example.com", range(1, 100));
+        $recipients = array_map(function ($i) {
+            return "recipient{$i}@example.com";
+        }, range(1, 100));
         Mail::raw('Hello', function ($message) use ($recipients) {
             $message->from('noreply@example.com')->to($recipients)->subject('Many recipients');
         });
@@ -96,7 +110,9 @@ class SizesAndLimitsTest extends TestCase
     public function test_addresses_and_the_subject_are_truncated_to_64_kb()
     {
         // About 80 KB of addresses, and an 80 KB subject: more than a MySQL TEXT column holds.
-        $recipients = array_map(fn ($i) => "recipient{$i}@example.com", range(1, 3000));
+        $recipients = array_map(function ($i) {
+            return "recipient{$i}@example.com";
+        }, range(1, 3000));
         Mail::raw('Hello', function ($message) use ($recipients) {
             $message->from('noreply@example.com')->to($recipients)->subject(str_repeat('x', 80 * 1024));
         });
