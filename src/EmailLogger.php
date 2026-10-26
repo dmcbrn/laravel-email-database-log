@@ -6,15 +6,47 @@ use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailLogged;
+use Throwable;
 
 class EmailLogger
 {
+    /**
+     * Added to a value that was cut off to fit its column.
+     */
+    const TRUNCATED_MARKER = '…[truncated]';
+
+    /**
+     * The size of the body and headers columns: what a MySQL TEXT column holds, in bytes.
+     */
+    const TEXT_COLUMN_BYTES = 65535;
+
+    /**
+     * The size of the address and subject columns (VARCHAR(255)), in characters.
+     */
+    const STRING_COLUMN_CHARACTERS = 255;
+
     /**
      * Handle the event.
      *
      * @param MessageSending $event
      */
     public function handle(MessageSending $event)
+    {
+        try {
+            $this->log($event);
+        } catch (Throwable $e) {
+            //logging must never stop an email from being sent: report the problem (to the app's log,
+            //or an error tracker such as Sentry) and let the email go out
+            report($e);
+        }
+    }
+
+    /**
+     * Log the email that is about to be sent.
+     *
+     * @param MessageSending $event
+     */
+    protected function log(MessageSending $event)
     {
         $message = $event->message;
 
@@ -41,13 +73,14 @@ class EmailLogger
 
         $fields = [
             'date' => date('Y-m-d H:i:s'),
-            'from' => $this->formatAddressField($message, 'From'),
-            'to' => $this->formatAddressField($message, 'To'),
-            'cc' => $this->formatAddressField($message, 'Cc'),
-            'bcc' => $this->formatAddressField($message, 'Bcc'),
-            'subject' => $message->getSubject(),
-            'body' => $message->getBody(),
-            'headers' => (string)$message->getHeaders(),
+            //values are cut off to fit their columns, so a long value can't stop the email from being sent
+            'from' => $this->truncateCharacters($this->formatAddressField($message, 'From')),
+            'to' => $this->truncateCharacters($this->formatAddressField($message, 'To')),
+            'cc' => $this->truncateCharacters($this->formatAddressField($message, 'Cc')),
+            'bcc' => $this->truncateCharacters($this->formatAddressField($message, 'Bcc')),
+            'subject' => $this->truncateCharacters($message->getSubject()),
+            'body' => $this->truncateBytes($message->getBody()),
+            'headers' => $this->truncateBytes((string)$message->getHeaders()),
             'attachments' => empty($attachments) ? null : implode(', ', $attachments),
             'messageId' => $messageId,
             'mail_driver' => $this->getMailDriver(),
@@ -67,6 +100,38 @@ class EmailLogger
         $emailLog = EmailLog::create($fields);
 
         event(new EmailLogged($emailLog));
+    }
+
+    /**
+     * Cut a value off at the size of a TEXT column, marker included, without splitting a UTF-8 character.
+     *
+     * @param  null|string  $value
+     * @return null|string
+     */
+    protected function truncateBytes($value)
+    {
+        if ($value === null || strlen($value) <= self::TEXT_COLUMN_BYTES) {
+            return $value;
+        }
+
+        return mb_strcut($value, 0, self::TEXT_COLUMN_BYTES - strlen(self::TRUNCATED_MARKER), 'UTF-8')
+            . self::TRUNCATED_MARKER;
+    }
+
+    /**
+     * Cut a value off at the size of a VARCHAR(255) column, marker included.
+     *
+     * @param  null|string  $value
+     * @return null|string
+     */
+    protected function truncateCharacters($value)
+    {
+        if ($value === null || mb_strlen($value, 'UTF-8') <= self::STRING_COLUMN_CHARACTERS) {
+            return $value;
+        }
+
+        return mb_substr($value, 0, self::STRING_COLUMN_CHARACTERS - mb_strlen(self::TRUNCATED_MARKER, 'UTF-8'), 'UTF-8')
+            . self::TRUNCATED_MARKER;
     }
 
     /**
