@@ -39,6 +39,7 @@ class EmailLog extends Model
         'mail_driver',
         'inline_attachments',
         'body_content_type',
+        'skipped_attachments',
     ];
 
     /**
@@ -49,6 +50,7 @@ class EmailLog extends Model
     protected $casts = [
         'date' => 'datetime',
         'inline_attachments' => 'array',
+        'skipped_attachments' => 'array',
     ];
 
     /**
