@@ -32,6 +32,15 @@
                     NONE
                 @endif
             </li>
+            @if(!empty($email->skipped_attachments))
+                <li>Attachments not stored:
+                    <ul>
+                        @foreach($email->skipped_attachments as $skipped)
+                            <li>{{ $skipped['message'] }}</li>
+                        @endforeach
+                    </ul>
+                </li>
+            @endif
             <li>Headers: {{ $email->headers }}</li>
             <li>Message ID: {{ $email->messageId }}</li>
             <li>Mail Driver: {{ $email->mail_driver }}</li>

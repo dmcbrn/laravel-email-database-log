@@ -206,8 +206,28 @@ class EmailLogController extends Controller {
         //update the attachments
         $email->attachments = $attachments;
 
+        //attachments that were too large to store, each with a message saying why
+        if (!empty($email->skipped_attachments)) {
+            $email->skipped_attachments = array_map(function ($skipped) {
+                $skipped['message'] = $skipped['name'] . ' was not stored: when this email was sent, the maximum size for logged attachments was '
+                    . $this->formatSize($skipped['limit']) . ', and this file was ' . $this->formatSize($skipped['size']) . '.';
+
+                return $skipped;
+            }, $email->skipped_attachments);
+        }
+
         //return
         return $email;
+    }
+
+    private function formatSize($bytes)
+    {
+        //"3 KB" below 1 MB (rounded up, so a file is never shown smaller than it was), "22 MB" or "1.5 MB" above
+        if ($bytes >= 1024 * 1024) {
+            return rtrim(rtrim(number_format($bytes / (1024 * 1024), 1, '.', ''), '0'), '.') . ' MB';
+        }
+
+        return max(1, (int) ceil($bytes / 1024)) . ' KB';
     }
 
     private function getEmailsForListing(Request $request)
