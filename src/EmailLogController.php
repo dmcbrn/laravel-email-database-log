@@ -6,12 +6,19 @@ use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Dmcbrn\LaravelEmailDatabaseLog\Events\EventFactory;
+use Dmcbrn\LaravelEmailDatabaseLog\Jobs\DeleteAttachmentFolders;
+use Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailsDeleted;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\HeaderUtils;
+use Throwable;
 
 class EmailLogController extends Controller {
     //attachment types that may be shown in the browser (everything else is downloaded)
     private const INLINE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+    //how many emails "Delete old emails" deletes at a time
+    private const DELETE_BATCH_SIZE = 500;
 
     public function index(Request $request)
     {
@@ -131,10 +138,10 @@ class EmailLogController extends Controller {
 
     public function createEvent(Request $request)
     {
-    	$event = EventFactory::create('mailgun');
+        $event = EventFactory::create('mailgun');
 
-    	//check if event is valid
-    	if(!$event)
+        //check if event is valid
+        if(!$event)
             return response('Error: Unsupported Service', 400)
                 ->header('Content-Type', 'text/plain');
 
@@ -146,7 +153,7 @@ class EmailLogController extends Controller {
         //save event
         return $event->saveEvent($request);
     }
-    
+
     public function deleteOldEmails(Request $request)
     {
         //delete old emails
@@ -156,7 +163,7 @@ class EmailLogController extends Controller {
         return redirect(route('email-log'))
             ->with('status', $message);
     }
-    
+
     public function deleteOldEmailsApi(Request $request)
     {
         //delete old emails
@@ -183,7 +190,7 @@ class EmailLogController extends Controller {
                 //update each attachment's value depending if file can be found on disk
                 $fileName = basename($attachment);
                 if(Storage::disk(config('email_log.disk'))->exists($attachment)) {
-                    $route = $isApi 
+                    $route = $isApi
                         ? 'api.email-log.fetch-attachment'
                         : 'email-log.fetch-attachment';
                     $formattedAttachment = [
@@ -216,17 +223,17 @@ class EmailLogController extends Controller {
         $request->validate([
             'filterEmail' => 'nullable|string',
             'filterSubject' => 'nullable|string',
-            'per_page' => 'nullable|numeric',
+            'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
         //get emails
         $filterEmail = $request->filterEmail;
         $filterSubject = $request->filterSubject;
         $emails = EmailLog::with([
-                'events' => function($q) {
-                    $q->select('messageId','created_at','event');
-                }
-            ])
+            'events' => function($q) {
+                $q->select('messageId','created_at','event');
+            }
+        ])
             ->select('id','messageId','date','from','to','subject')
             ->when($filterEmail, function($q) use($filterEmail) {
                 return $q->where('to','like','%'.$filterEmail.'%');
@@ -235,10 +242,24 @@ class EmailLogController extends Controller {
                 return $q->where('subject','like','%'.$filterSubject.'%');
             })
             ->orderBy('id','desc')
-            ->paginate($request->per_page ?: 20)
+            ->paginate((int) $request->per_page ?: 20)
             ->withQueryString();
 
         return [$emails, $filterEmail, $filterSubject];
+    }
+
+    private function deleteAttachmentFolders(array $folders)
+    {
+        //immediately by default ("sync"), or on the queue set by EMAIL_LOG_QUEUE_CONNECTION and
+        //EMAIL_LOG_QUEUE; the emails are already deleted, so a failure here is only reported
+        try {
+            $job = (new DeleteAttachmentFolders($folders))
+                ->onConnection(config('email_log.queue_connection') ?: 'sync')
+                ->onQueue(config('email_log.queue'));
+            app(Dispatcher::class)->dispatch($job);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     private function deleteEmailsBeforeDate(Request $request)
@@ -248,25 +269,38 @@ class EmailLogController extends Controller {
             'date' => 'required|date',
         ]);
 
-        //get emails logged on or before the selected date (= before the start of the next day)
+        //emails logged on or before the selected date (= before the start of the next day)
         $date = strtotime($request->date);
-        $emails = EmailLog::select('id', 'date', 'messageId')
-            ->where('date', '<', date('Y-m-d H:i:s', strtotime('+1 day', $date)))
-            ->get();
+        $before = date('Y-m-d H:i:s', strtotime('+1 day', $date));
 
-        //delete email attachments
-        foreach ($emails as $email) {
-            //emails logged before the messageId column existed have no message ID and no attachment
-            //folder; deleting the folder "" would delete everything on the disk
-            if ((string) $email->messageId === '')
-                continue;
+        //in batches, reading only what is needed (never the bodies), with one query per batch for the
+        //events and one for the emails; Eloquent's model events don't fire for these deletes, the
+        //package's EmailsDeleted event does, once per batch
+        $numberOfDeletedEmails = 0;
+        EmailLog::select('id', 'messageId', 'attachments')
+            ->where('date', '<', $before)
+            ->chunkById(self::DELETE_BATCH_SIZE, function ($emails) use (&$numberOfDeletedEmails) {
+                $ids = $emails->pluck('id')->all();
+                //emails logged before the messageId column existed have no message ID
+                $messageIds = $emails->pluck('messageId')->filter(function ($messageId) {
+                    return (string) $messageId !== '';
+                })->values()->all();
 
-            Storage::disk(config('email_log.disk'))
-                ->deleteDirectory($email->messageId);
-        }
-        
-        //delete emails
-        $numberOfDeletedEmails = EmailLog::destroy($emails->pluck('id'));
+                if (!empty($messageIds)) {
+                    EmailLogEvent::whereIn('messageId', $messageIds)->delete();
+                }
+                $numberOfDeletedEmails += EmailLog::whereIn('id', $ids)->delete();
+
+                //the attachment folders, named after the message IDs, of the emails that have attachments
+                $folders = $emails->filter(function ($email) {
+                    return (string) $email->messageId !== '' && (string) $email->attachments !== '';
+                })->pluck('messageId')->values()->all();
+                if (!empty($folders)) {
+                    $this->deleteAttachmentFolders($folders);
+                }
+
+                event(new EmailsDeleted($ids, $messageIds));
+            });
 
         //return message
         return 'Deleted ' . $numberOfDeletedEmails . ' emails logged on and before ' . date('D, d M Y', $date);

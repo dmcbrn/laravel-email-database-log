@@ -2,6 +2,10 @@
 
 return [
     'disk' => env('EMAIL_LOG_DISK', env('EMAIL_LOG_ATTACHMENT_DISK', 'email_log_attachments')),
+    //the queue connection and queue for the package's background work (currently only deleting the
+    //attachments of deleted emails); "sync" runs it immediately
+    'queue_connection' => env('EMAIL_LOG_QUEUE_CONNECTION', 'sync'),
+    'queue' => env('EMAIL_LOG_QUEUE', null),
     'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
     'access_middleware_api' => env('EMAIL_LOG_ACCESS_MIDDLEWARE_API',null),
     'routes_prefix' => env('EMAIL_LOG_ROUTES_PREFIX',''),
