@@ -106,6 +106,11 @@ Config contains following parameters:
 'max_body_size' => (int) env('EMAIL_LOG_MAX_BODY_SIZE', 1024),
 'max_attachment_size' => (int) env('EMAIL_LOG_MAX_ATTACHMENT_SIZE', 10240),
 
+//the queue connection and queue for the package's background work (currently only deleting the
+//attachments of deleted emails); "sync" runs it immediately; see "Deleting old emails"
+'queue_connection' => env('EMAIL_LOG_QUEUE_CONNECTION', 'sync'),
+'queue' => env('EMAIL_LOG_QUEUE', null),
+
 //required: the middlewares that protect the WEB routes (separate several by comma);
 //until they are set, the pages answer 404
 'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
@@ -140,11 +145,28 @@ If you want to process the logged email or save/format some additional data on y
 
 If you use queues, restart your queue workers after installing or upgrading the package (`php artisan queue:restart`). They keep the old code in memory until they are restarted ([Laravel docs](https://laravel.com/docs/queues#queue-workers-and-deployment)).
 
-You can review sent emails using the following URI `/email-log`.
+You can review sent emails using the following URI `/email-log`. The list shows 20 emails per page; add `per_page` to the URL to change that, for example `/email-log?per_page=50`. It must be a whole number from 1 to 100. The same applies to the API (`/api/email-log`), which answers other values with a validation error (HTTP 422).
 
 You can prefix this URI by adding something like `EMAIL_LOG_ROUTES_PREFIX=prefix/` to your .env file.
 
 The pages are only reachable once `EMAIL_LOG_ACCESS_MIDDLEWARE` is set (see [Step 4](#step-4-protect-the-email-log-required)).
+
+## Deleting old emails
+
+The list page has a form to delete all emails logged on or before a date; the API offers the same (`POST /api/email-log/delete` with a `date`). The emails are deleted in batches of up to 500, without loading them in full, so large logs can be cleaned up too.
+
+**Events:** after each batch, the package fires `Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailsDeleted`, with the deleted emails' IDs (`$event->ids`) and message IDs (`$event->messageIds`). It is fired **once per batch, not once per deletion**: deleting 1,200 emails fires it three times (500, 500 and 200 emails). Eloquent's model events (`deleting`, `deleted`) are not fired for these deletes; they still are when you delete a single email in your own code with `$email->delete()`.
+
+**Attachments:** each deleted email's attachment folder is deleted by a job. By default it runs immediately, as part of the request. To delete attachments in the background instead, for example when they are on S3 and there are many, set the queue connection, and optionally a queue name, in your `.env` file:
+
+```
+EMAIL_LOG_QUEUE_CONNECTION=redis
+EMAIL_LOG_QUEUE=email-log
+```
+
+A queue worker then has to run for that connection and queue; until it does, the files stay on the disk. A folder that can't be deleted is reported through Laravel's error handling (your log file, or an error tracker such as Sentry), and the others are still deleted. A folder whose name isn't a plain folder name (for example `x/..`) is never deleted; a warning is written to your log instead.
+
+Without a queue, deleting a very large number of emails with attachments can run into your server's time limit for a request. Delete in smaller steps (older dates first) in that case, or use a queue.
 
 ## Sizes and limits
 

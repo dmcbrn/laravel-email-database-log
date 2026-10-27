@@ -2,6 +2,14 @@
 
 Upgrade notes for every release, newest first. Which version to use for which Laravel version is listed in the [README](README.md).
 
+## Upgrade from 10.2.0 to 10.3.0 - DELETING OLD EMAILS IN BATCHES, PER_PAGE LIMIT, BREAKING CHANGES
+
+- **`per_page` must now be a whole number from 1 to 100**, on the list page and in the API. Other values, such as `per_page=500` or `per_page=-1`, now give a validation error (HTTP 422 in the API) instead of being used. API clients that asked for more than 100 emails at once need to page through the results.
+- **"Delete old emails"** (on the page and in the API) now deletes in batches of up to 500 emails, with one query per batch, without loading the emails in full. **Eloquent's model events (`deleting`, `deleted`) are no longer fired for these deletes.** If your app listened to them, listen to the new `EmailsDeleted` event instead. It is fired **once per batch**, not once per deletion (see "Deleting old emails" in the [README](README.md#deleting-old-emails)). Deleting a single email in your own code with `$email->delete()` still fires the model events.
+- **Attachment folders** of deleted emails are now deleted by a job. By default it runs immediately, as before. To run it in the background, set `EMAIL_LOG_QUEUE_CONNECTION` and, optionally, `EMAIL_LOG_QUEUE`. A folder that can't be deleted is reported, and the others are still deleted.
+- **A folder whose name isn't a plain folder name** (for example `x/..`) is never deleted; a warning is written to your log instead.
+- No migrations. If you use queues, restart your queue workers after upgrading.
+
 ## Upgrade from 10.0.2 to 10.1.0 - EMAIL LOG PROTECTED BY DEFAULT, BREAKING CHANGE
 
 The email log's pages and API are now only reachable once an access middleware is set. Until then they answer "404 Not Found", in every environment, `local` included. Before, they were open to anyone when no middleware was set: anyone could read the logged emails, including password reset links, and delete the log through the API.
