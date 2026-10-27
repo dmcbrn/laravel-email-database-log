@@ -65,6 +65,11 @@ Config contains following parameters:
 'max_body_size' => (int) env('EMAIL_LOG_MAX_BODY_SIZE', 1024),
 'max_attachment_size' => (int) env('EMAIL_LOG_MAX_ATTACHMENT_SIZE', 10240),
 
+//the queue connection and queue for the package's background work (currently only deleting the
+//attachments of deleted emails); "sync" runs it immediately; see "Deleting old emails"
+'queue_connection' => env('EMAIL_LOG_QUEUE_CONNECTION', 'sync'),
+'queue' => env('EMAIL_LOG_QUEUE', null),
+
 //to prevent access to list of logged emails through WEB routes add a middlewares
 //multiple middlewares can be used (separate by comma)
 'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
@@ -129,11 +134,28 @@ So, during your deployment process, be sure to restart your queue workers.
 https://laravel.com/docs/5.5/queues#running-the-queue-worker
 ```
 
-You can review sent emails using the following URI `/email-log`.
+You can review sent emails using the following URI `/email-log`. The list shows 20 emails per page; add `per_page` to the URL to change that, for example `/email-log?per_page=50`. It must be a whole number from 1 to 100. The same applies to the API (`/api/email-log`), which answers other values with a validation error (HTTP 422).
 
 You can prefix this URI by adding something like `EMAIL_LOG_ROUTES_PREFIX=prefix/` to your .env file.
 
 You can protect this URI using middleware by adding something like `EMAIL_LOG_ACCESS_MIDDLEWARE=auth,landlord` to your .env file.
+
+## Deleting old emails
+
+The list page has a form to delete all emails logged on or before a date; the API offers the same (`POST /api/email-log/delete` with a `date`). The emails are deleted in batches of up to 500, without loading them in full, so large logs can be cleaned up too.
+
+**Events:** after each batch, the package fires `Dmcbrn\LaravelEmailDatabaseLog\LaravelEvents\EmailsDeleted`, with the deleted emails' IDs (`$event->ids`) and message IDs (`$event->messageIds`). It is fired **once per batch, not once per deletion**: deleting 1,200 emails fires it three times (500, 500 and 200 emails). Eloquent's model events (`deleting`, `deleted`) are not fired for these deletes; they still are when you delete a single email in your own code with `$email->delete()`.
+
+**Attachments:** each deleted email's attachment folder is deleted by a job. By default it runs immediately, as part of the request. To delete attachments in the background instead, for example when they are on S3 and there are many, set the queue connection, and optionally a queue name, in your `.env` file:
+
+```
+EMAIL_LOG_QUEUE_CONNECTION=redis
+EMAIL_LOG_QUEUE=email-log
+```
+
+A queue worker then has to run for that connection and queue; until it does, the files stay on the disk. A folder that can't be deleted is reported through Laravel's error handling (your log file, or an error tracker such as Sentry), and the others are still deleted. A folder whose name isn't a plain folder name (for example `x/..`) is never deleted; a warning is written to your log instead.
+
+Without a queue, deleting a very large number of emails with attachments can run into your server's time limit for a request. Delete in smaller steps (older dates first) in that case, or use a queue.
 
 ## Sizes and limits
 
@@ -214,6 +236,14 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 6.1.0 to 6.2.0 - DELETING OLD EMAILS IN BATCHES, PER_PAGE LIMIT, BREAKING CHANGES
+
+- **`per_page` must now be a whole number from 1 to 100**, on the list page and in the API. Other values, such as `per_page=500` or `per_page=-1`, now give a validation error (HTTP 422 in the API) instead of being used. API clients that asked for more than 100 emails at once need to page through the results.
+- **"Delete old emails"** (on the page and in the API) now deletes in batches of up to 500 emails, with one query per batch, without loading the emails in full. **Eloquent's model events (`deleting`, `deleted`) are no longer fired for these deletes.** If your app listened to them, listen to the new `EmailsDeleted` event instead. It is fired **once per batch**, not once per deletion (see "Deleting old emails" above). Deleting a single email in your own code with `$email->delete()` still fires the model events.
+- **Attachment folders** of deleted emails are now deleted by a job. By default it runs immediately, as before. To run it in the background, set `EMAIL_LOG_QUEUE_CONNECTION` and, optionally, `EMAIL_LOG_QUEUE`. A folder that can't be deleted is reported, and the others are still deleted.
+- **A folder whose name isn't a plain folder name** (for example `x/..`) is never deleted; a warning is written to your log instead.
+- No migrations. If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 6.0.2 to 6.1.0 - EMAILS OF ANY SIZE, ATTACHMENT LIMIT, NEW MIGRATION
 
