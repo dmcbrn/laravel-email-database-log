@@ -83,6 +83,9 @@
                         <span>{{ $errors->first('filterSubject') }}</span>
                     @endif
                 @endif
+                @if($errors->has('per_page'))
+                    <br><span class="error">{{ $errors->first('per_page') }}</span>
+                @endif
                 <br><input type="submit" value="Search">
                 @if($filterEmail || $filterSubject)
                     <a type="button" href="{{ route('email-log') }}">Clear filters</a>
