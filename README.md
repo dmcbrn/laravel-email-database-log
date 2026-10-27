@@ -183,12 +183,14 @@ If your site is behind Cloudflare, make sure Cloudflare lets Mailgun's webhook r
 
 ## Running the tests
 
-The package has a test suite that boots a throw-away Laravel app with [Orchestra Testbench](https://github.com/orchestral/testbench), using an in-memory SQLite database. Nothing is sent and nothing is left behind.
+The package has a test suite that boots a throw-away Laravel app with [Orchestra Testbench](https://github.com/orchestral/testbench). By default it uses an in-memory SQLite database, so nothing is sent and nothing is left behind.
 
 ```bash
 composer update
 composer test
 ```
+
+To run the tests on MySQL instead, set `EMAIL_LOG_TEST_DB_CONNECTION=mysql`, together with `EMAIL_LOG_TEST_DB_HOST`, `EMAIL_LOG_TEST_DB_PORT`, `EMAIL_LOG_TEST_DB_DATABASE`, `EMAIL_LOG_TEST_DB_USERNAME` and `EMAIL_LOG_TEST_DB_PASSWORD`. The tests empty that database, so use one created only for them.
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
 

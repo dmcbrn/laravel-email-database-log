@@ -5,6 +5,7 @@ namespace Dmcbrn\LaravelEmailDatabaseLog\Tests;
 use Dmcbrn\LaravelEmailDatabaseLog\EmailLog;
 use Dmcbrn\LaravelEmailDatabaseLog\LaravelEmailDatabaseLogServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -40,13 +41,25 @@ abstract class TestCase extends Orchestra
         // Web pages encrypt cookies, which needs an app key. Any 32 random bytes will do in tests.
         $config->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
 
-        // In-memory SQLite database: fast, and nothing to install or clean up.
+        // The database: in-memory SQLite by default (fast, nothing to install or clean up).
+        // To run the tests on MySQL instead, set EMAIL_LOG_TEST_DB_CONNECTION=mysql and the other
+        // EMAIL_LOG_TEST_DB_* variables. Own variable names, so the tests never wipe a database
+        // that is configured for something else. (5.x can't be installed on PostgreSQL.)
         $config->set('database.default', 'testing');
-        $config->set('database.connections.testing', [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-        ]);
+        $driver = env('EMAIL_LOG_TEST_DB_CONNECTION', 'sqlite');
+        $config->set('database.connections.testing', $driver === 'sqlite'
+            ? ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']
+            : [
+                'driver' => $driver,
+                'host' => env('EMAIL_LOG_TEST_DB_HOST', '127.0.0.1'),
+                'port' => env('EMAIL_LOG_TEST_DB_PORT'),
+                'database' => env('EMAIL_LOG_TEST_DB_DATABASE', 'email_log_tests'),
+                'username' => env('EMAIL_LOG_TEST_DB_USERNAME', 'root'),
+                'password' => env('EMAIL_LOG_TEST_DB_PASSWORD', ''),
+                'charset' => 'utf8mb4',
+                'collation' => 'utf8mb4_unicode_ci',
+                'prefix' => '',
+            ]);
 
         // The "array" mailer never sends anything; it only keeps mails in memory.
         // The package logs mails before they reach the mailer, so it works the same.
@@ -82,5 +95,16 @@ abstract class TestCase extends Orchestra
         });
 
         return EmailLog::orderBy('id', 'desc')->first();
+    }
+
+    /**
+     * Skip a test that changes the table structure: MySQL saves such changes immediately, so they
+     * can't be undone after the test like everything else.
+     */
+    protected function skipOnMySql()
+    {
+        if (DB::connection()->getDriverName() === 'mysql') {
+            $this->markTestSkipped('MySQL saves table structure changes immediately; they cannot be undone after the test.');
+        }
     }
 }
