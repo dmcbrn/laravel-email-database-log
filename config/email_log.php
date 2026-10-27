@@ -6,6 +6,10 @@ return [
     //and the largest attachment that is stored (0 stores attachments of any size)
     'max_body_size' => (int) env('EMAIL_LOG_MAX_BODY_SIZE', 1024),
     'max_attachment_size' => (int) env('EMAIL_LOG_MAX_ATTACHMENT_SIZE', 10240),
+    //the queue connection and queue for the package's background work (currently only deleting the
+    //attachments of deleted emails); "sync" runs it immediately
+    'queue_connection' => env('EMAIL_LOG_QUEUE_CONNECTION', 'sync'),
+    'queue' => env('EMAIL_LOG_QUEUE', null),
     'access_middleware' => env('EMAIL_LOG_ACCESS_MIDDLEWARE',null),
     'access_middleware_api' => env('EMAIL_LOG_ACCESS_MIDDLEWARE_API',null),
     'routes_prefix' => env('EMAIL_LOG_ROUTES_PREFIX',''),
