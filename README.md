@@ -15,7 +15,7 @@ For Laravel 9 - use 6.* versions. They require Laravel 9.52 or newer: Laravel 9 
 
 For Laravel 10 - use 7.* versions. They support every Laravel 10 version.
 
-Versions 7.* are tested on MySQL 5.7, PostgreSQL 11 and SQLite, and versions 6.* on MySQL 5.7, PostgreSQL 10 and SQLite. Versions 5.* are tested on MySQL and SQLite; they cannot be installed on PostgreSQL.
+Versions 7.* are tested on MySQL 5.7 and 8.4, PostgreSQL 11 and SQLite, and versions 6.* on MySQL 5.7, PostgreSQL 10 and SQLite. Versions 5.* are tested on MySQL and SQLite; they cannot be installed on PostgreSQL.
 
 Version 5.1 is using Filesystems which is a breaking change from 5.3. See below for upgrade information.
 
@@ -228,7 +228,7 @@ composer test
 
 To run the tests on MySQL or PostgreSQL instead, set `EMAIL_LOG_TEST_DB_CONNECTION` (`mysql` or `pgsql`), together with `EMAIL_LOG_TEST_DB_HOST`, `EMAIL_LOG_TEST_DB_PORT`, `EMAIL_LOG_TEST_DB_DATABASE`, `EMAIL_LOG_TEST_DB_USERNAME` and `EMAIL_LOG_TEST_DB_PASSWORD`. The tests empty that database, so use one created only for them.
 
-GitHub Actions runs the tests on every push: on PHP 8.1, 8.2 and 8.3 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 11.
+GitHub Actions runs the tests on every push: on PHP 8.1, 8.2 and 8.3 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and 8.4 and PostgreSQL 11.
 
 Laravel 10 is end-of-life, and recent Composer versions refuse to install packages with known security advisories. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
 
@@ -238,6 +238,10 @@ composer test
 ```
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 7.2.0 to 7.2.1 - MYSQL 8.4
+
+Fresh installs failed on MySQL 8.4: a 2019 migration created a foreign key from `email_log_events.messageId` to `email_log.messageId`, which MySQL 8.4 refuses because `email_log.messageId` has no unique index. That migration no longer creates the key, and the 2026 migration that removes it from existing databases now only drops it where it exists. In both cases, `email_log_events.messageId` keeps its index. Existing databases are not affected: they lost the key when they were upgraded to 6.0 or later. Nothing to do when upgrading.
 
 ## Upgrade from 7.1.0 to 7.2.0 - DELETING OLD EMAILS IN BATCHES, PER_PAGE LIMIT, BREAKING CHANGES
 
