@@ -23,7 +23,7 @@ For Laravel 13 - use 10.* versions. They support every Laravel 13 version.
 
 Tested databases:
 
-- 10.*: MySQL 5.7, PostgreSQL 10 and SQLite
+- 10.*: MySQL 5.7 and 8.4, PostgreSQL 10 and SQLite
 - 9.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 8.*: MySQL 5.7, PostgreSQL 10 and SQLite
 - 7.*: MySQL 5.7, PostgreSQL 11 and SQLite
@@ -237,7 +237,7 @@ composer test
 
 To run the tests on MySQL or PostgreSQL instead, set `EMAIL_LOG_TEST_DB_CONNECTION` (`mysql` or `pgsql`), together with `EMAIL_LOG_TEST_DB_HOST`, `EMAIL_LOG_TEST_DB_PORT`, `EMAIL_LOG_TEST_DB_DATABASE`, `EMAIL_LOG_TEST_DB_USERNAME` and `EMAIL_LOG_TEST_DB_PASSWORD`. The tests empty that database, so use one created only for them.
 
-GitHub Actions runs the tests on every push: on PHP 8.3, 8.4 and 8.5 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and PostgreSQL 10.
+GitHub Actions runs the tests on every push: on PHP 8.3, 8.4 and 8.5 with the oldest and the newest allowed dependency versions (SQLite), and on MySQL 5.7 and 8.4 and PostgreSQL 10.
 
 Recent Composer versions refuse to install package versions with known security advisories, which the oldest allowed Laravel 13 versions have. If `composer update` refuses, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1`.
 

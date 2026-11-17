@@ -2,6 +2,10 @@
 
 Upgrade notes for every release, newest first. Which version to use for which Laravel version is listed in the [README](README.md).
 
+## Upgrade from 10.3.0 to 10.3.1 - MYSQL 8.4
+
+Fresh installs failed on MySQL 8.4: a 2019 migration created a foreign key from `email_log_events.messageId` to `email_log.messageId`, which MySQL 8.4 refuses because `email_log.messageId` has no unique index. That migration no longer creates the key, and the 2026 migration that removes it from existing databases now only drops it where it exists. In both cases, `email_log_events.messageId` keeps its index. Existing databases are not affected: they lost the key when they were upgraded to 6.0 or later. Nothing to do when upgrading.
+
 ## Upgrade from 10.2.0 to 10.3.0 - DELETING OLD EMAILS IN BATCHES, PER_PAGE LIMIT, BREAKING CHANGES
 
 - **`per_page` must now be a whole number from 1 to 100**, on the list page and in the API. Other values, such as `per_page=500` or `per_page=-1`, now give a validation error (HTTP 422 in the API) instead of being used. API clients that asked for more than 100 emails at once need to page through the results.
