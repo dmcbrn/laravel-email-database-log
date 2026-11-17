@@ -43,14 +43,21 @@ jobs:
       - name: Run tests
         run: vendor/bin/phpunit
 
-  # MySQL: the oldest version Laravel 11 supports.
+  # MySQL: the oldest version Laravel 11 supports, and 8.4, which refuses foreign keys to
+  # columns without a unique index (5.7 allows them).
   mysql:
     runs-on: ubuntu-latest
-    name: MySQL 5.7 / PHP 8.4
+
+    strategy:
+      fail-fast: false
+      matrix:
+        mysql: ['5.7', '8.4']
+
+    name: MySQL ${{ matrix.mysql }} / PHP 8.4
 
     services:
       mysql:
-        image: mysql:5.7
+        image: mysql:${{ matrix.mysql }}
         env:
           MYSQL_ROOT_PASSWORD: password
           MYSQL_DATABASE: email_log_tests
