@@ -24,11 +24,11 @@ For Laravel 13 - use 10.* versions. They support every Laravel 13 version.
 Tested databases:
 
 - 10.*: MySQL 5.7 and 8.4, PostgreSQL 10 and SQLite
-- 9.*: MySQL 5.7, PostgreSQL 10 and SQLite
-- 8.*: MySQL 5.7, PostgreSQL 10 and SQLite
-- 7.*: MySQL 5.7, PostgreSQL 11 and SQLite
-- 6.*: MySQL 5.7, PostgreSQL 10 and SQLite
-- 5.*: MySQL and SQLite; they cannot be installed on PostgreSQL
+- 9.*: MySQL 5.7 and 8.4, PostgreSQL 10 and SQLite
+- 8.*: MySQL 5.7 and 8.4, PostgreSQL 10 and SQLite
+- 7.*: MySQL 5.7 and 8.4, PostgreSQL 11 and SQLite
+- 6.*: MySQL 5.7 and 8.4, PostgreSQL 10 and SQLite
+- 5.*: MySQL 5.7 and 8.4 and SQLite; not tested on PostgreSQL
 
 **Security note for versions before 10.1.0** (all versions for Laravel 12 and older): they leave the email log open when `EMAIL_LOG_ACCESS_MIDDLEWARE` and `EMAIL_LOG_ACCESS_MIDDLEWARE_API` are not set. Anyone can then read every logged email, including password reset links, and delete the log through the API. If you use one of those versions, set both, as described in [Step 4](#step-4-protect-the-email-log-required).
 
