@@ -11,6 +11,8 @@ For Laravel 7 - use 4.* versions
 
 For Laravel 8 - use 5.* versions
 
+Version 5.* is tested on MySQL 5.7 and 8.4 and SQLite. MySQL 8.4 needs 5.8.0 or newer.
+
 Version 5.1 is using Filesystems which is a breaking change from 5.3. See below for upgrade information.
 
 # Installation
@@ -215,6 +217,16 @@ composer test
 To run the tests on MySQL instead, set `EMAIL_LOG_TEST_DB_CONNECTION=mysql`, together with `EMAIL_LOG_TEST_DB_HOST`, `EMAIL_LOG_TEST_DB_PORT`, `EMAIL_LOG_TEST_DB_DATABASE`, `EMAIL_LOG_TEST_DB_USERNAME` and `EMAIL_LOG_TEST_DB_PASSWORD`. The tests empty that database, so use one created only for them.
 
 Recent Composer versions refuse to install packages with known security advisories, which every Laravel 8 release has. To run the tests anyway, set `COMPOSER_NO_BLOCKING=1` and `COMPOSER_NO_SECURITY_BLOCKING=1` when running `composer update`.
+
+## Upgrade from 5.7.0 to 5.8.0 - MYSQL 8.4, NEW MIGRATION, BREAKING CHANGE
+
+Fresh installs failed on MySQL 8.4: a 2019 migration created a foreign key from `email_log_events.messageId` to `email_log.messageId`, which MySQL 8.4 refuses because `email_log.messageId` has no unique index. That migration no longer creates the key, and a new migration removes it from existing databases. When upgrading:
+
+- **Run the new migration:** `php artisan migrate`. On MySQL and MariaDB it removes the foreign key from `email_log_events.messageId`, if it is there (the index stays). On SQLite it does nothing.
+- **Moving to MySQL 8.4?** Upgrade to 5.8.0 and run the migration first, while still on your current MySQL version. MySQL 8.4 refuses to create the key, for example when importing a dump of a database that still has it.
+- **Deleting emails:** an email's events are now deleted together with the email on every database (on SQLite they were left behind before), whenever it is deleted through the model: `$email->delete()` and `EmailLog::destroy()`. "Delete old emails" (on the page and in the API) already deleted them. **Bulk deletes in your own code, such as `EmailLog::where(...)->delete()` or raw SQL, do not fire model events, so on MySQL they no longer delete the events.** To remove leftover events afterwards: `EmailLogEvent::whereDoesntHave('email')->delete();` (this also removes events kept for unknown emails, see below).
+- **`EMAIL_LOG_MAILGUN_FILTER_UNKNOWN_EMAILS=false` now works on MySQL.** Saving events for emails that are not in the log failed there because of the foreign key.
+- If you use queues, restart your queue workers after upgrading.
 
 ## Upgrade from 5.6.3 to 5.7.0 - DELETING OLD EMAILS IN BATCHES, PER_PAGE LIMIT, BREAKING CHANGES
 
